@@ -64,7 +64,7 @@ function applyTheme(t) {
 }
 function applyLook(l) {
   document.documentElement.dataset.look = l;
-  try { localStorage.setItem('ma_look', l); } catch {}
+  try { localStorage.setItem('ma_look2', l); } catch {}
   $('look-btn').textContent = l === 'minimal' ? 'Bold look' : 'Minimal look';
 }
 // "3,1 | 4,2 | 4,2 | 5,3" → the points row for the given race (the last row repeats for extra races)

@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Magical Athlete — Game</title>
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/minimal.css">
+  <link rel="stylesheet" href="css/style.css?v=20260905c">
+  <link rel="stylesheet" href="css/minimal.css?v=20260905c">
   <script>try {
     var q = new URLSearchParams(location.search);
     if (q.get('theme')) localStorage.setItem('ma_theme', q.get('theme'));
-    if (q.get('look')) localStorage.setItem('ma_look', q.get('look'));
+    if (q.get('look')) localStorage.setItem('ma_look2', q.get('look'));
     document.documentElement.dataset.theme = localStorage.getItem('ma_theme') || 'light';
-    document.documentElement.dataset.look = localStorage.getItem('ma_look') || 'minimal';
+    document.documentElement.dataset.look = localStorage.getItem('ma_look2') || 'minimal';
   } catch (e) {}</script>
 </head>
 <body>
@@ -353,10 +353,10 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/client.js"></script>
-  <script src="js/cards.js"></script>
-  <script src="js/boards.js"></script>
-  <script src="js/game.js"></script>
+  <script src="js/config.js?v=20260905c"></script>
+  <script src="js/client.js?v=20260905c"></script>
+  <script src="js/cards.js?v=20260905c"></script>
+  <script src="js/boards.js?v=20260905c"></script>
+  <script src="js/game.js?v=20260905c"></script>
 </body>
 </html>
