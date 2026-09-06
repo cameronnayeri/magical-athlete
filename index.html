@@ -5,7 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Magical Athlete</title>
   <link rel="stylesheet" href="css/style.css">
-  <script>try { document.documentElement.dataset.theme = localStorage.getItem('ma_theme') || 'light'; } catch (e) {}</script>
+  <link rel="stylesheet" href="css/minimal.css">
+  <script>try {
+    var q = new URLSearchParams(location.search);
+    if (q.get('theme')) localStorage.setItem('ma_theme', q.get('theme'));
+    if (q.get('look')) localStorage.setItem('ma_look', q.get('look'));
+    document.documentElement.dataset.theme = localStorage.getItem('ma_theme') || 'light';
+    document.documentElement.dataset.look = localStorage.getItem('ma_look') || 'minimal';
+  } catch (e) {}</script>
 </head>
 <body>
   <div id="notification"></div>
@@ -16,7 +23,7 @@
       <h1>Magical Athlete</h1>
       <p class="subtitle">Draft ridiculous racers. Roll dice. Ruin friendships.</p>
       <span class="mode-pill" id="mode-pill" hidden></span>
-      <div class="mt-12"><button class="btn btn--sm" id="theme-btn" type="button">🌙 Dark</button></div>
+      <div class="mt-12 btn-row"><button class="btn btn--sm" id="theme-btn" type="button">🌙 Dark</button><button class="btn btn--sm" id="look-btn" type="button">Minimal</button></div>
     </div>
 
     <div class="index-panels">
@@ -71,6 +78,13 @@
     }
     applyTheme(document.documentElement.dataset.theme || 'light');
     $('theme-btn').onclick = () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+    function applyLook(l) {
+      document.documentElement.dataset.look = l;
+      try { localStorage.setItem('ma_look', l); } catch (e) {}
+      $('look-btn').textContent = l === 'minimal' ? 'Bold look' : 'Minimal look';
+    }
+    applyLook(document.documentElement.dataset.look || 'minimal');
+    $('look-btn').onclick = () => applyLook(document.documentElement.dataset.look === 'minimal' ? 'bold' : 'minimal');
 
     const savedName = localStorage.getItem('ma_playerName') || '';
     $('create-name').value = savedName;

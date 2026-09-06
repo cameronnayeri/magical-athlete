@@ -6,6 +6,12 @@
 // ============================================================
 
 const store     = getStore();
+// A rejoin link can carry the seat: game.html?code=ABCD&pid=…
+{
+  const q = new URLSearchParams(location.search);
+  if (q.get('code') && q.get('pid')) { IDENT.setItem('ma_lobbyCode', q.get('code').toUpperCase()); IDENT.setItem('ma_playerId', q.get('pid')); }
+  if (location.search) history.replaceState(null, '', location.pathname);
+}
 const lobbyCode = IDENT.getItem('ma_lobbyCode');
 const myId      = IDENT.getItem('ma_playerId');
 
@@ -55,6 +61,11 @@ function applyTheme(t) {
   document.documentElement.dataset.theme = t;
   try { localStorage.setItem('ma_theme', t); } catch {}
   $('theme-btn').textContent = t === 'dark' ? '☀️ Light' : '🌙 Dark';
+}
+function applyLook(l) {
+  document.documentElement.dataset.look = l;
+  try { localStorage.setItem('ma_look', l); } catch {}
+  $('look-btn').textContent = l === 'minimal' ? 'Bold look' : 'Minimal look';
 }
 // "3,1 | 4,2 | 4,2 | 5,3" → the points row for the given race (the last row repeats for extra races)
 function pointsTable(st = state, race = st.race || 1) {
@@ -111,6 +122,7 @@ async function init() {
   $('code-chip').textContent = lobbyCode;
   if (LOCAL_MODE) $('local-chip').hidden = false;
   applyTheme(document.documentElement.dataset.theme || 'light');
+  applyLook(document.documentElement.dataset.look || 'minimal');
 
   [lobby, players, strokes, madeCards] = await Promise.all([
     store.getLobby(lobbyCode), store.getPlayers(lobbyCode), store.getStrokes(lobbyCode), store.getCards(lobbyCode),
@@ -205,6 +217,7 @@ function wireUI() {
   $('c-cancel').onclick = resetCardForm;
   $('create-start-btn').onclick = startCreatedDraft;
   $('theme-btn').onclick = () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+  $('look-btn').onclick = () => applyLook(document.documentElement.dataset.look === 'minimal' ? 'bold' : 'minimal');
   buildEmojiPicker();
   $('pawn-art').onclick = () => setPawnChoice('art');
   $('pawn-emoji').onclick = () => setPawnChoice('emoji');

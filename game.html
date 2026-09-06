@@ -5,7 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Magical Athlete — Game</title>
   <link rel="stylesheet" href="css/style.css">
-  <script>try { document.documentElement.dataset.theme = localStorage.getItem('ma_theme') || 'light'; } catch (e) {}</script>
+  <link rel="stylesheet" href="css/minimal.css">
+  <script>try {
+    var q = new URLSearchParams(location.search);
+    if (q.get('theme')) localStorage.setItem('ma_theme', q.get('theme'));
+    if (q.get('look')) localStorage.setItem('ma_look', q.get('look'));
+    document.documentElement.dataset.theme = localStorage.getItem('ma_theme') || 'light';
+    document.documentElement.dataset.look = localStorage.getItem('ma_look') || 'minimal';
+  } catch (e) {}</script>
 </head>
 <body>
   <div id="notification"></div>
@@ -21,6 +28,7 @@
       <div class="score-chips" id="score-chips"></div>
       <button class="btn btn--sm btn--sun" id="gallery-btn">🃏 All cards</button>
       <button class="btn btn--sm" id="theme-btn">🌙 Dark</button>
+      <button class="btn btn--sm" id="look-btn" title="Switch between the bold and minimal looks">Minimal</button>
       <button class="btn btn--sm" id="help-btn">? Help</button>
       <button class="btn btn--sm btn--ghost" id="leave-btn">Leave</button>
     </div>
