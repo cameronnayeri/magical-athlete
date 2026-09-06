@@ -4,50 +4,54 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Magical Athlete</title>
-  <link rel="stylesheet" href="css/style.css?v=20260906j">
+  <link rel="stylesheet" href="css/style.css?v=20260906m">
   <script>try {
     var q = new URLSearchParams(location.search);
     if (q.get('theme')) localStorage.setItem('ma_theme', q.get('theme'));
+    if (q.get('font')) localStorage.setItem('ma_font', q.get('font'));
     document.documentElement.dataset.theme = localStorage.getItem('ma_theme') || 'light';
+    document.documentElement.dataset.font = localStorage.getItem('ma_font') || 'sans';
   } catch (e) {}</script>
 </head>
 <body>
   <div id="notification"></div>
 
-  <main class="index-page">
-    <div class="index-title">
-      <div class="wordmark"><b>magical</b><span>athlete</span></div>
-      <p class="subtitle">Draft ridiculous racers. Roll dice. Ruin friendships.</p>
-      <span class="mode-pill" id="mode-pill" hidden></span>
+  <main class="wrap">
+    <div class="index-hero">
+      <div class="wordmark"><span class="mark">✱</span>Magical Athlete</div>
+      <p class="sub">Draft ridiculous racers. Roll dice. Ruin friendships.</p>
+      <span class="pill pill--c mode-pill" id="mode-pill" hidden></span>
     </div>
 
     <div class="index-panels">
-      <div>
-        <h2 class="sec">Create a game</h2>
-        <div class="field"><label class="lbl" for="create-name">Your name</label><input type="text" id="create-name" placeholder="Enter your name" maxlength="20" autocomplete="off"></div>
-        <button class="pbtn pbtn--go" id="create-btn"><i>▶</i>Create lobby</button>
+      <div class="panel">
+        <h2>Create a game</h2>
+        <div class="field mt-12"><span class="eyebrow">Your name</span><input type="text" id="create-name" placeholder="Enter your name" maxlength="20" autocomplete="off"></div>
+        <button class="btn btn--primary btn--block" id="create-btn">Create lobby</button>
       </div>
-      <div>
-        <h2 class="sec">Join a game</h2>
-        <div class="field"><label class="lbl" for="join-name">Your name</label><input type="text" id="join-name" placeholder="Enter your name" maxlength="20" autocomplete="off"></div>
-        <div class="field"><label class="lbl" for="join-code">Lobby code</label><input type="text" id="join-code" placeholder="ABCD" maxlength="4" class="code-input" autocomplete="off"></div>
-        <button class="pbtn" id="join-btn"><i>➜</i>Join game</button>
+      <div class="panel">
+        <h2>Join a game</h2>
+        <div class="field mt-12"><span class="eyebrow">Your name</span><input type="text" id="join-name" placeholder="Enter your name" maxlength="20" autocomplete="off"></div>
+        <div class="field"><span class="eyebrow">Lobby code</span><input type="text" id="join-code" placeholder="ABCD" maxlength="4" class="code-input" autocomplete="off"></div>
+        <button class="btn btn--block" id="join-btn">Join game</button>
         <div id="claim-box" hidden>
-          <p class="note mt-8">That game already started. Pick your seat to rejoin:</p>
+          <p class="note mt-12">That game already started. Pick your seat to rejoin:</p>
           <div class="claim-list" id="claim-list"></div>
         </div>
       </div>
     </div>
 
-    <h2 class="sec mt-16">Theme</h2>
-    <select id="theme-select" style="width:180px"><option value="light">Sunny Day</option><option value="dark">Midnight</option></select>
+    <div class="settings-inline">
+      <select id="theme-select"><option value="light">Light</option><option value="dark">Dark</option></select>
+      <select id="font-select"><option value="sans">Sans serif</option><option value="pixel">Pixel font</option></select>
+    </div>
 
-    <p class="rail-foot mt-16">2–8 players · No account needed · Abilities are read from the cards and applied by hand.<br>Magical Athlete is a board game by Takahiro. This is a fan-made table for playing it online.</p>
+    <p class="note index-foot">2–8 players · No account needed · Abilities are read from the cards and applied by hand.<br>Magical Athlete is a board game by Takahiro. This is a fan-made table for playing it online.</p>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="js/config.js?v=20260906j"></script>
-  <script src="js/client.js?v=20260906j"></script>
+  <script src="js/config.js?v=20260906m"></script>
+  <script src="js/client.js?v=20260906m"></script>
   <script>
     const store = getStore();
 
@@ -57,13 +61,12 @@
       pill.textContent = 'Local test mode — open more tabs in this browser to add players. Add Supabase details in js/config.js to play online.';
     }
 
-    function applyTheme(t) {
-      document.documentElement.dataset.theme = t;
-      try { localStorage.setItem('ma_theme', t); } catch (e) {}
-      $('theme-select').value = t;
-    }
+    function applyTheme(t) { document.documentElement.dataset.theme = t; try { localStorage.setItem('ma_theme', t); } catch (e) {} $('theme-select').value = t; }
+    function applyFont(f) { document.documentElement.dataset.font = f; try { localStorage.setItem('ma_font', f); } catch (e) {} $('font-select').value = f; }
     applyTheme(document.documentElement.dataset.theme || 'light');
+    applyFont(document.documentElement.dataset.font || 'sans');
     $('theme-select').onchange = () => applyTheme($('theme-select').value);
+    $('font-select').onchange = () => applyFont($('font-select').value);
 
     const savedName = localStorage.getItem('ma_playerName') || '';
     $('create-name').value = savedName;
@@ -80,10 +83,8 @@
       IDENT.setItem('ma_lobbyCode', code);
       window.location.href = 'game.html';
     }
-
     function setBusy(btn, busy) { btn.disabled = busy; }
 
-    // ── Create ──────────────────────────────────────────────
     $('create-btn').addEventListener('click', async () => {
       const name = $('create-name').value.trim();
       if (!name) return showNotif('Enter your name first', 'error');
@@ -93,7 +94,6 @@
         const playerId = generateId();
         let code, attempts = 0;
         do { code = generateCode(); attempts++; } while (attempts < 10 && await store.getLobby(code));
-
         await store.createLobby({ code, host_player_id: playerId, settings: { ...DEFAULT_SETTINGS }, game_state: {}, status: 'waiting' });
         await store.insertPlayer({ id: playerId, lobby_code: code, name, color: PLAYER_COLORS[0].hex, seat_order: 0, is_host: true, last_seen: new Date().toISOString() });
         enter(playerId, code, name);
@@ -104,7 +104,6 @@
       }
     });
 
-    // ── Join ────────────────────────────────────────────────
     $('join-btn').addEventListener('click', async () => {
       const name = $('join-name').value.trim();
       const code = $('join-code').value.trim().toUpperCase();
@@ -116,31 +115,25 @@
         const lobby = await store.getLobby(code);
         if (!lobby) { showNotif('Lobby not found', 'error'); return setBusy(btn, false); }
         const existing = await store.getPlayers(code);
-
         if (lobby.status !== 'waiting') {
-          // Game in progress: let them reclaim a seat (e.g. after switching devices)
           const box = $('claim-box'), list = $('claim-list');
-          box.hidden = false;
-          list.innerHTML = '';
+          box.hidden = false; list.innerHTML = '';
           existing.forEach(p => {
             const b = document.createElement('button');
-            b.className = 'pbtn';
-            b.innerHTML = `<i style="background:${p.color}"></i>${escapeHtml(p.name)}`;
+            b.className = 'btn';
+            b.innerHTML = `<span class="dot" style="background:${p.color}"></span>${escapeHtml(p.name)}`;
             b.onclick = () => enter(p.id, code, name);
             list.appendChild(b);
           });
           setBusy(btn, false);
           return;
         }
-
         const settings = { ...DEFAULT_SETTINGS, ...(lobby.settings || {}) };
         if (existing.length >= settings.maxPlayers) { showNotif('Lobby is full', 'error'); return setBusy(btn, false); }
-
         const usedSeats = existing.map(p => p.seat_order);
         let seat = 0; while (usedSeats.includes(seat)) seat++;
         const usedColors = existing.map(p => p.color);
         const color = (PLAYER_COLORS.find(c => !usedColors.includes(c.hex)) || PLAYER_COLORS[seat % PLAYER_COLORS.length]).hex;
-
         const playerId = generateId();
         await store.insertPlayer({ id: playerId, lobby_code: code, name, color, seat_order: seat, is_host: false, last_seen: new Date().toISOString() });
         enter(playerId, code, name);

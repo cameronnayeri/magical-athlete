@@ -16,8 +16,8 @@
 //  Leave a one-tile gap between parallel runs so numbers stay legible.
 // ============================================================
 
-const GRID = 16;   // the pixel grid everything sits on
-const TILE = 48;   // a space is a 3×3 grid tile
+const GRID = 16;
+const TILE = 56;   // a space is a 56px tile
 
 const BOARDS = [
   {
@@ -135,54 +135,65 @@ function layoutBoard(def) {
   const xs = def.tiles.map(t => t[0]), ys = def.tiles.map(t => t[1]);
   const minX = Math.min(...xs), minY = Math.min(...ys);
   const cols = Math.max(...xs) - minX + 1, rows = Math.max(...ys) - minY + 1;
-  const points = def.tiles.map(([x, y]) => ({ x: TILE + (x - minX) * TILE + TILE / 2, y: TILE + (y - minY) * TILE + TILE / 2 }));
-  const W = (cols + 2) * TILE, H = (rows + 2) * TILE;
+  const M = 24;   // margin around the tiles
+  const points = def.tiles.map(([x, y]) => ({ x: M + (x - minX) * TILE + TILE / 2, y: M + (y - minY) * TILE + TILE / 2 }));
+  const W = cols * TILE + M * 2, H = rows * TILE + M * 2;
   return (_layoutCache[def.id] = { points, W, H, r: TILE / 2 });
 }
 
-// Build the whole board as an SVG string (no pieces — those go in #pieces-layer)
+// Build the whole board as an SVG string (no pieces — those go in #pieces-layer).
+// Tiles are chunky blocks seen slightly from above: a shadow, a thick white side, and an illustrated top.
+const DEPTH = 10;   // how tall a tile's side looks
 function boardSVG(def, opts = {}) {
   const { points, W, H, r } = layoutBoard(def);
   const goal = def.length + 1;
   const specials = opts.specials || def.specials || {};
   // A preview (lobby) copy must not reuse the live board's ids, or pawns end up drawn into the hidden preview
   const sfx = opts.preview ? '-preview' : '';
-  let s = `<svg class="board-svg${opts.cls ? ' ' + opts.cls : ''}" id="${opts.id || 'board-svg'}" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+  const inner = TILE - 4;               // top face, inset so the white side shows all round
+  const rx = 8;
+  let s = `<svg class="board-svg${opts.cls ? ' ' + opts.cls : ''}" id="${opts.id || 'board-svg'}" width="${W}" height="${H + DEPTH}" viewBox="0 0 ${W} ${H + DEPTH}" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <clipPath id="clip16${sfx}"><circle r="16"/></clipPath><clipPath id="clip12${sfx}"><circle r="12"/></clipPath>
-      <pattern id="grid${sfx}" width="${GRID}" height="${GRID}" patternUnits="userSpaceOnUse"><path d="M${GRID} 0H0V${GRID}" fill="none" stroke="#2c2c2c" stroke-width="1"/></pattern>
-    </defs>
-    <rect class="board-bg" x="0" y="0" width="${W}" height="${H}"/>
-    <rect class="board-grid" x="0" y="0" width="${W}" height="${H}" fill="url(#grid${sfx})"/>`;
+      <clipPath id="clip14${sfx}"><circle r="14"/></clipPath><clipPath id="clip11${sfx}"><circle r="11"/></clipPath>
+    </defs>`;
 
-  // chute / ladder connectors: right-angled, drawn under the tiles
-  Object.entries(specials).forEach(([from, sp]) => {
-    if (sp.type !== 'ladder' && sp.type !== 'chute') return;
-    const a = points[+from], b = points[sp.to];
-    if (!a || !b) return;
-    const d = `M${a.x} ${a.y} H${b.x} V${b.y}`;
-    if (sp.type === 'ladder') s += `<path class="ladder" d="${d}"/>`;
-    else s += `<path class="chute" d="${d}"/>`;
-  });
+  // Draw back-to-front so nearer tiles overlap the sides of the ones behind them
+  const order = points.map((p, i) => i).sort((a, b) => points[a].y - points[b].y || points[a].x - points[b].x);
 
-  // tiles
-  points.forEach((p, i) => {
+  const wave = (x, y) => `<path class="wave" d="M${x} ${y} q3 -3 6 0 t6 0"/>`;
+  order.forEach(i => {
+    const p = points[i];
     const isStart = i === 0, isGoal = i === goal;
     const sp = specials[i];
-    const x = p.x - r, y = p.y - r;
+    const x = p.x - r + 2, y = p.y - r + 2;   // top face origin
+    const topCls = isStart ? 'tile-top tile-top--start' : isGoal ? 'tile-top tile-top--goal' : sp ? 'tile-top tile-top--special' : (i % 2 ? 'tile-top tile-top--alt' : 'tile-top');
+    s += `<g data-space="${i}" class="space${isStart || isGoal ? ' space--end' : ''}">`;
+    s += `<rect class="tile-shadow" x="${x - 1}" y="${y + DEPTH + 2}" width="${inner + 2}" height="${inner}" rx="${rx}"/>`;
+    s += `<rect class="tile-side" x="${x}" y="${y + DEPTH}" width="${inner}" height="${inner}" rx="${rx}"/>`;
+    s += `<rect class="tile-side tile-side--front" x="${x}" y="${y + DEPTH / 2}" width="${inner}" height="${inner}" rx="${rx}"/>`;
+    s += `<rect class="${topCls}" x="${x}" y="${y}" width="${inner}" height="${inner}" rx="${rx}"/>`;
     if (isStart || isGoal) {
-      s += `<g data-space="${i}" class="space space--end"><rect class="cell ${isStart ? 'cell--start' : 'cell--goal'}" x="${x}" y="${y}" width="${TILE}" height="${TILE}"/>`;
-      s += `<text class="cell-label" x="${p.x}" y="${p.y + 6}" text-anchor="middle">${isStart ? 'GO' : 'END'}</text></g>`;
-      return;
-    }
-    const cls = sp ? `cell cell--${sp.type}` : 'cell';
-    s += `<g data-space="${i}" class="space"><rect class="${cls}" x="${x}" y="${y}" width="${TILE}" height="${TILE}"/>`;
-    s += `<text class="cell-num" x="${x + 4}" y="${y + 14}">${i}</text>`;
-    if (sp) {
-      const info = SPECIAL_INFO[sp.type] || { emoji: '❔' };
-      s += `<title>${describeSpecial(i, sp)}</title><text class="cell-special" x="${x + TILE - 10}" y="${y + 11}" text-anchor="middle" dominant-baseline="central" font-size="14">${info.emoji}</text>`;
-      if (sp.type === 'forward' || sp.type === 'back') {
-        s += `<text class="cell-badge" x="${x + TILE - 4}" y="${y + TILE - 4}" text-anchor="end">${sp.type === 'forward' ? '+' : '-'}${sp.n}</text>`;
+      s += `<text class="tile-label" x="${p.x}" y="${p.y + 5}" text-anchor="middle">${isStart ? 'GO' : 'END'}</text>`;
+      if (isGoal) s += `<text class="tile-glyph" x="${x + inner - 12}" y="${y + 12}" text-anchor="middle" dominant-baseline="central" font-size="12">🏁</text>`;
+    } else {
+      if (!sp) { s += wave(x + 8 + (i % 3) * 5, y + 30 - (i % 2) * 6); if (i % 2) s += wave(x + 20, y + 18); }
+      else s += `<path class="sandline" d="M${x + 4} ${y + inner - 14} q10 -6 20 0 t16 -2"/>`;
+      s += `<rect class="tile-num-bg" x="${x + 4}" y="${y + 4}" width="20" height="14" rx="4"/><text class="tile-num" x="${x + 14}" y="${y + 14.5}" text-anchor="middle">${i}</text>`;
+      if (sp) {
+        const info = SPECIAL_INFO[sp.type] || { emoji: '❔' };
+        s += `<title>${describeSpecial(i, sp)}</title>`;
+        let jump = null;
+        if (sp.type === 'ladder') jump = `↑${sp.to}`;
+        else if (sp.type === 'chute') jump = `↓${sp.to}`;
+        else if (sp.type === 'forward') jump = `+${sp.n}`;
+        else if (sp.type === 'back') jump = `−${sp.n}`;
+        if (jump) {
+          const w = 8 + jump.length * 7;
+          s += `<rect class="tile-jump-bg" x="${x + inner - w - 3}" y="${y + inner - 19}" width="${w}" height="15" rx="4"/><text class="tile-jump" x="${x + inner - 3 - w / 2}" y="${y + inner - 8}" text-anchor="middle">${jump}</text>`;
+          s += `<text class="tile-glyph" x="${x + inner - 11}" y="${y + 11}" text-anchor="middle" dominant-baseline="central" font-size="12">${info.emoji}</text>`;
+        } else {
+          s += `<text class="tile-glyph" x="${x + inner - 12}" y="${y + inner - 12}" text-anchor="middle" dominant-baseline="central" font-size="16">${info.emoji}</text>`;
+        }
       }
     }
     s += '</g>';

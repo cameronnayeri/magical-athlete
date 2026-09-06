@@ -4,22 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Magical Athlete — Game</title>
-  <link rel="stylesheet" href="css/style.css?v=20260906j">
+  <link rel="stylesheet" href="css/style.css?v=20260906m">
   <script>try {
     var q = new URLSearchParams(location.search);
     if (q.get('theme')) localStorage.setItem('ma_theme', q.get('theme'));
+    if (q.get('font')) localStorage.setItem('ma_font', q.get('font'));
     document.documentElement.dataset.theme = localStorage.getItem('ma_theme') || 'light';
+    document.documentElement.dataset.font = localStorage.getItem('ma_font') || 'sans';
   } catch (e) {}</script>
 </head>
 <body>
   <div id="notification"></div>
 
   <header class="top">
-    <div class="wordmark"><b>magical</b><span>athlete</span></div>
+    <div class="wordmark"><span class="mark">✱</span>Magical Athlete <span class="pill pill--line" id="code-chip" title="Click to copy an invite link">????</span><span class="pill pill--b" id="phase-chip">Lobby</span><span class="pill pill--c" id="local-chip" hidden title="Only tabs in this browser can see this game">local</span></div>
     <nav class="topnav">
-      <span class="pin" id="code-chip" title="Click to copy an invite link">????</span>
-      <span class="pin" id="phase-chip">Lobby</span>
-      <span class="pin" id="local-chip" hidden title="Only tabs in this browser can see this game">local</span>
       <div class="score-chips" id="score-chips"></div>
       <a id="gallery-btn">Cards</a>
       <a id="help-btn">Help</a>
@@ -29,189 +28,209 @@
 
   <!-- ══════════════ LOBBY ══════════════ -->
   <main id="view-lobby" hidden>
-    <div class="layout">
-      <aside class="rail">
-        <h2 class="sec">Lobby</h2>
-        <div class="pbtn-stack">
-          <button class="pbtn pbtn--go" id="start-btn" hidden><i>▶</i>Start</button>
-          <button class="pbtn" id="invite-btn"><i>🔗</i>Invite</button>
-          <button class="pbtn" id="shuffle-btn"><i>🔀</i>Shuffle</button>
-        </div>
-        <p class="note mt-8" id="waiting-msg"></p>
-        <h2 class="sec">Theme</h2>
-        <select id="theme-select"><option value="light">Sunny Day</option><option value="dark">Midnight</option></select>
-        <h2 class="sec">Docs</h2>
-        <p><a id="help-link">How to play</a></p>
-        <p><a id="gallery-link">All cards</a></p>
-        <p class="rail-foot">Magical Athlete is a board game by Takahiro. This is a fan-made table for playing it online with friends.</p>
-      </aside>
-
+    <div class="wrap lobby-grid">
       <section>
-        <h2 class="sec">Players <span class="sec-note" id="player-count"></span></h2>
-        <div class="lrows" id="player-list"></div>
-        <p class="hint mt-8">Top to bottom is the turn order. Drag a row or use ▲▼. Friends join with the code at the top, or the invite link.</p>
+        <div class="panel">
+          <div class="sec"><h2>Players</h2><span class="eyebrow" id="player-count"></span></div>
+          <div class="rows" id="player-list"></div>
+          <div class="pills mt-12" style="gap:8px">
+            <button class="btn btn--sm btn--primary" id="start-btn" hidden>Start tournament</button>
+            <button class="btn btn--sm" id="invite-btn">Copy invite link</button>
+            <button class="btn btn--sm" id="shuffle-btn">Shuffle order</button>
+            <span class="note" id="waiting-msg" style="align-self:center"></span>
+          </div>
+          <p class="note mt-8">Top to bottom is the turn order. Drag a row or use ▲▼. Friends join with the code at the top, or the invite link.</p>
+        </div>
 
-        <h2 class="sec">Your color</h2>
-        <div class="color-row" id="color-row"></div>
+        <div class="panel mt-16">
+          <div class="sec"><h2>Your color</h2></div>
+          <div class="color-row" id="color-row"></div>
+        </div>
 
-        <h2 class="sec">Board</h2>
-        <p class="note" id="board-blurb"></p>
-        <div class="board-preview mt-8" id="board-preview"></div>
-        <div class="board-legend" id="board-legend-lobby"></div>
+        <div class="panel mt-16">
+          <div class="sec"><h2>Board</h2></div>
+          <p class="note" id="board-blurb"></p>
+          <div class="board-preview mt-12" id="board-preview"></div>
+        </div>
       </section>
 
-      <aside class="colr">
-        <h2 class="sec">Settings</h2>
-        <div id="settings-form">
-          <div class="setting-row">
-            <div><div class="setting-row__label">Board</div><div class="setting-row__desc">The track you race on</div></div>
-            <select id="s-board"></select>
+      <aside>
+        <div class="panel">
+          <div class="sec"><h2>Settings</h2></div>
+          <div id="settings-form">
+            <div class="setting-row">
+              <div><div class="setting-row__label">Board</div><div class="setting-row__desc">The track you race on</div></div>
+              <select id="s-board"></select>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-row__label">Experimental boards</div><div class="setting-row__desc">Themed tracks with built-in chutes, ladders, stars and peels</div></div>
+              <label class="toggle"><input type="checkbox" id="s-experimentalBoards"><span class="toggle__track"></span></label>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-row__label">Boost &amp; setback tiles</div><div class="setting-row__desc">Random "forward 3" / "back 2" tiles each race</div></div>
+              <label class="toggle"><input type="checkbox" id="s-randomBoost"><span class="toggle__track"></span></label>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-row__label">Random chutes &amp; ladders</div><div class="setting-row__desc">A few random ladders and chutes each race</div></div>
+              <label class="toggle"><input type="checkbox" id="s-randomChutes"><span class="toggle__track"></span></label>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-row__label">Random stars &amp; peels</div><div class="setting-row__desc">Point tiles and trip tiles each race</div></div>
+              <label class="toggle"><input type="checkbox" id="s-randomStars"><span class="toggle__track"></span></label>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-row__label">Random tiles: <span id="squareCount-val">6</span></div><div class="setting-row__desc">How many per race, split across the kinds above</div></div>
+              <input type="range" id="s-squareCount" min="0" max="16" step="1">
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-row__label">Racers come from</div><div class="setting-row__desc">The deck, or everyone invents racers first</div></div>
+              <select id="s-cardSource"><option value="deck">The deck</option><option value="create">Players create them</option></select>
+            </div>
+            <div class="setting-row" id="row-cardsPerPlayer">
+              <div><div class="setting-row__label">Racers each player creates</div></div>
+              <input type="number" id="s-cardsPerPlayer" min="1" max="6">
+            </div>
+            <div class="setting-row" id="row-official">
+              <div><div class="setting-row__label">Official racers</div><div class="setting-row__desc">The 30 from the box (text from memory — check it)</div></div>
+              <label class="toggle"><input type="checkbox" id="s-official"><span class="toggle__track"></span></label>
+            </div>
+            <div class="setting-row" id="row-experimental">
+              <div><div class="setting-row__label">Experimental racers</div><div class="setting-row__desc">80 new characters, untested</div></div>
+              <label class="toggle"><input type="checkbox" id="s-experimental"><span class="toggle__track"></span></label>
+            </div>
+            <div class="setting-row" id="row-custom" hidden>
+              <div><div class="setting-row__label">Custom racers</div><div class="setting-row__desc">From CUSTOM_CARDS in cards.js</div></div>
+              <label class="toggle"><input type="checkbox" id="s-custom"><span class="toggle__track"></span></label>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-row__label">Races</div></div>
+              <input type="number" id="s-races" min="1" max="12">
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-row__label">Draft every</div><div class="setting-row__desc">Draft before race 1, then every N races</div></div>
+              <input type="number" id="s-draftEvery" min="1" max="12">
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-row__label">Picks per draft</div></div>
+              <input type="number" id="s-picksPerDraft" min="1" max="5">
+            </div>
+            <div class="setting-row" id="row-poolExtra">
+              <div><div class="setting-row__label">Extra cards on the table</div></div>
+              <input type="number" id="s-poolExtra" min="0" max="10">
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-row__label">Racers retire</div><div class="setting-row__desc">A racer sits out after it has run once</div></div>
+              <label class="toggle"><input type="checkbox" id="s-retire"><span class="toggle__track"></span></label>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-row__label">Points by place</div><div class="setting-row__desc">Per race, separated by |</div></div>
+              <input type="text" id="s-points" placeholder="3,1 | 4,2 | 4,2 | 5,3">
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-row__label">Finishers to end a race</div></div>
+              <input type="number" id="s-finishersToEnd" min="1" max="8">
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-row__label">Max players</div></div>
+              <input type="number" id="s-maxPlayers" min="2" max="8">
+            </div>
           </div>
-          <div class="setting-row">
-            <div><div class="setting-row__label">Experimental boards</div><div class="setting-row__desc">Themed tracks with built-in chutes, ladders, stars and peels</div></div>
-            <label class="toggle"><input type="checkbox" id="s-experimentalBoards"><span class="toggle__track"></span></label>
-          </div>
-          <div class="setting-row">
-            <div><div class="setting-row__label">⚡ Boost &amp; setback squares</div><div class="setting-row__desc">Random "forward 3" / "back 2" squares each race</div></div>
-            <label class="toggle"><input type="checkbox" id="s-randomBoost"><span class="toggle__track"></span></label>
-          </div>
-          <div class="setting-row">
-            <div><div class="setting-row__label">🪜 Random chutes &amp; ladders</div><div class="setting-row__desc">A few random ladders and chutes each race</div></div>
-            <label class="toggle"><input type="checkbox" id="s-randomChutes"><span class="toggle__track"></span></label>
-          </div>
-          <div class="setting-row">
-            <div><div class="setting-row__label">⭐ Random stars &amp; peels</div><div class="setting-row__desc">Point squares and trip squares each race</div></div>
-            <label class="toggle"><input type="checkbox" id="s-randomStars"><span class="toggle__track"></span></label>
-          </div>
-          <div class="setting-row">
-            <div><div class="setting-row__label">Random squares: <span id="squareCount-val">6</span></div><div class="setting-row__desc">How many per race, split across the kinds above</div></div>
-            <input type="range" id="s-squareCount" min="0" max="16" step="1">
-          </div>
-          <div class="setting-row">
-            <div><div class="setting-row__label">Racers come from</div><div class="setting-row__desc">The deck, or everyone invents racers first</div></div>
-            <select id="s-cardSource"><option value="deck">The deck</option><option value="create">Players create them</option></select>
-          </div>
-          <div class="setting-row" id="row-cardsPerPlayer">
-            <div><div class="setting-row__label">Racers each player creates</div></div>
-            <input type="number" id="s-cardsPerPlayer" min="1" max="6">
-          </div>
-          <div class="setting-row" id="row-official">
-            <div><div class="setting-row__label">Official racers</div><div class="setting-row__desc">The 30 from the box (text from memory — check it)</div></div>
-            <label class="toggle"><input type="checkbox" id="s-official"><span class="toggle__track"></span></label>
-          </div>
-          <div class="setting-row" id="row-experimental">
-            <div><div class="setting-row__label">Experimental racers</div><div class="setting-row__desc">80 new characters, untested</div></div>
-            <label class="toggle"><input type="checkbox" id="s-experimental"><span class="toggle__track"></span></label>
-          </div>
-          <div class="setting-row" id="row-custom" hidden>
-            <div><div class="setting-row__label">Custom racers</div><div class="setting-row__desc">From CUSTOM_CARDS in cards.js</div></div>
-            <label class="toggle"><input type="checkbox" id="s-custom"><span class="toggle__track"></span></label>
-          </div>
-          <div class="setting-row">
-            <div><div class="setting-row__label">Races</div></div>
-            <input type="number" id="s-races" min="1" max="12">
-          </div>
-          <div class="setting-row">
-            <div><div class="setting-row__label">Draft every</div><div class="setting-row__desc">Draft before race 1, then every N races</div></div>
-            <input type="number" id="s-draftEvery" min="1" max="12">
-          </div>
-          <div class="setting-row">
-            <div><div class="setting-row__label">Picks per draft</div></div>
-            <input type="number" id="s-picksPerDraft" min="1" max="5">
-          </div>
-          <div class="setting-row" id="row-poolExtra">
-            <div><div class="setting-row__label">Extra cards on the table</div></div>
-            <input type="number" id="s-poolExtra" min="0" max="10">
-          </div>
-          <div class="setting-row">
-            <div><div class="setting-row__label">Racers retire</div><div class="setting-row__desc">A racer sits out after it has run once</div></div>
-            <label class="toggle"><input type="checkbox" id="s-retire"><span class="toggle__track"></span></label>
-          </div>
-          <div class="setting-row">
-            <div><div class="setting-row__label">Points by place</div><div class="setting-row__desc">Per race, separated by |</div></div>
-            <input type="text" id="s-points" placeholder="3,1 | 4,2 | 4,2 | 5,3">
-          </div>
-          <div class="setting-row">
-            <div><div class="setting-row__label">Finishers to end a race</div></div>
-            <input type="number" id="s-finishersToEnd" min="1" max="8">
-          </div>
-          <div class="setting-row">
-            <div><div class="setting-row__label">Max players</div></div>
-            <input type="number" id="s-maxPlayers" min="2" max="8">
-          </div>
+          <div id="settings-summary" class="setting-summary" hidden></div>
+          <p class="note mt-12" id="deck-size"></p>
         </div>
-        <div id="settings-summary" class="setting-summary" hidden></div>
-        <p class="hint mt-8" id="deck-size"></p>
+        <div class="panel mt-16">
+          <div class="sec"><h2>Display</h2></div>
+          <div class="setting-row"><div class="setting-row__label">Theme</div><select id="theme-select"><option value="light">Light</option><option value="dark">Dark</option></select></div>
+          <div class="setting-row"><div class="setting-row__label">Type</div><select id="font-select"><option value="sans">Sans serif</option><option value="pixel">Pixel font</option></select></div>
+        </div>
       </aside>
     </div>
   </main>
 
-  <!-- ══════════════ GAME ══════════════ -->
+  <!-- ══════════════ GAME: the map ══════════════ -->
   <main id="view-game" hidden>
-    <div class="layout">
-      <aside class="rail">
-        <div class="pbtn-stack">
-          <button class="pbtn" id="roll-btn" title="Shortcut: R"><i>🎲</i>Roll</button>
-          <button class="pbtn" id="roll2-btn"><i>🎲</i>Roll 2</button>
-          <button class="pbtn pbtn--go" id="next-turn-btn" title="Shortcut: N"><i>➜</i>End turn</button>
-          <button class="pbtn" id="draw-toggle" title="Shortcut: D"><i>✎</i>Draw</button>
-          <button class="pbtn" id="draw-btn" title="Flips a random undrafted card face-up, for abilities like Inventor or Chameleon"><i>🃏</i>Flip card</button>
-          <button class="pbtn" id="end-race-btn" hidden><i>🏁</i>End race</button>
-        </div>
-        <div class="tbtn-grid">
-          <button class="tbtn" id="mv-back">−1</button>
-          <button class="tbtn" id="mv-fwd">+1</button>
-          <button class="tbtn" id="mv-roll">+ roll</button>
-          <button class="tbtn" id="mv-start">Start</button>
-          <button class="tbtn" id="undo-btn" title="Shortcut: U">Undo</button>
-          <button class="tbtn" id="apply-square" hidden title="This pawn is on a boost or setback square">Apply</button>
-        </div>
-        <h2 class="sec">Theme</h2>
-        <select id="theme-select-game"><option value="light">Sunny Day</option><option value="dark">Midnight</option></select>
-        <h2 class="sec">Docs</h2>
-        <p><a id="help-link-game">How to play</a></p>
-        <p class="rail-foot">Type a number to move your pawn that far. R roll, N end turn, U undo, D draw.</p>
-      </aside>
+    <div class="map">
+      <div class="map-scroll" id="map-scroll">
+        <div class="board-stage"><div class="board-tilt" id="board-tilt"><div id="board"></div></div></div>
+      </div>
 
-      <section>
-        <h2 class="sec">Race</h2>
-        <div class="toolrow">
-          <span class="pin" id="turn-sub">—</span>
-          <span class="lbl">Now</span><span class="pin pin--hi" id="turn-who">—</span>
-          <div class="dice-row" id="dice-row"></div>
-          <span class="lbl" id="roll-meta"></span>
-          <span class="tripped-pill" id="turn-trip" hidden>🍌 Tripped — misses next turn</span>
+      <!-- top-left: actions -->
+      <div class="hud hud-tl">
+        <div class="toolbar">
+          <button class="ibtn" id="roll-btn" title="Roll (R)">🎲</button>
+          <button class="ibtn" id="roll2-btn" title="Roll two dice">🎲🎲</button>
+          <button class="ibtn ibtn--go" id="next-turn-btn" title="End turn (N)">➜</button>
+          <span class="sep"></span>
+          <button class="ibtn" id="draw-toggle" title="Draw on the board (D)">✎</button>
+          <button class="ibtn" id="draw-btn" title="Flip a random undrafted card">🃏</button>
+          <button class="ibtn" id="undo-btn" title="Undo last move (U)">↶</button>
+          <button class="ibtn" id="end-race-btn" hidden title="End the race">🏁</button>
         </div>
-        <div class="pane board-pane"><div id="board"></div></div>
-        <div class="board-legend" id="board-legend"></div>
-        <div class="toolrow mt-8"><span class="lbl" id="selected-label">Click a pawn to select it</span></div>
-        <div class="board-hint" id="board-hint"></div>
-        <div class="draw-bar" id="draw-bar">
-          <span class="lbl">Pen</span>
+        <div class="toolbar" id="pawn-tools">
+          <span class="note" id="selected-label" style="padding:0 8px">Click a pawn to select it</span>
+          <button class="btn btn--sm" id="mv-back">−1</button>
+          <button class="btn btn--sm" id="mv-fwd">+1</button>
+          <button class="btn btn--sm" id="mv-roll">+ roll</button>
+          <button class="btn btn--sm" id="mv-start">Start</button>
+          <button class="btn btn--sm btn--accent" id="apply-square" hidden>Apply</button>
+        </div>
+        <div class="draw-tools" id="draw-tools" hidden>
+          <span class="note">Pen</span>
           <div class="draw-colors" id="draw-colors"></div>
-          <button class="tbtn" id="draw-size" title="Pen size">Thin</button>
-          <button class="tbtn" id="draw-hide">Hide drawings</button>
-          <button class="tbtn" id="draw-clear-mine">Clear mine</button>
-          <button class="tbtn" id="draw-clear-all" hidden>Clear all</button>
+          <button class="btn btn--sm" id="draw-size">Thin</button>
+          <button class="btn btn--sm" id="draw-hide">Hide drawings</button>
+          <button class="btn btn--sm" id="draw-clear-mine">Clear mine</button>
+          <button class="btn btn--sm" id="draw-clear-all" hidden>Clear all</button>
         </div>
+        <p class="note" id="board-hint" style="max-width:420px;padding:0 6px"></p>
+      </div>
 
-        <h2 class="sec">Players <span class="sec-note">drag to reorder · click to select their pawn</span></h2>
-        <div class="lrows" id="player-cards"></div>
+      <!-- top-center: whose turn -->
+      <div class="hud hud-tc">
+        <div class="turnstrip">
+          <span class="eyebrow" id="turn-sub">—</span>
+          <span class="who"><span id="turn-who">—</span></span>
+          <div class="dice-row" id="dice-row"></div>
+          <span class="note" id="roll-meta"></span>
+          <span class="tripped-pill" id="turn-trip" hidden>🍌 misses next turn</span>
+        </div>
+      </div>
 
-        <h2 class="sec">Racers</h2>
-        <div class="card-grid" id="racer-tiles"></div>
-      </section>
+      <!-- top-right: zoom, settings, players -->
+      <div class="hud hud-tr">
+        <div class="toolbar">
+          <button class="ibtn" id="zoom-out" title="Zoom out">−</button>
+          <button class="ibtn" id="zoom-in" title="Zoom in">+</button>
+          <button class="ibtn" id="settings-toggle" title="Display settings">⚙</button>
+        </div>
+        <div class="fpanel settings-pop" id="settings-pop" hidden>
+          <label>Theme<select id="theme-select-game"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+          <label>Type<select id="font-select-game"><option value="sans">Sans serif</option><option value="pixel">Pixel font</option></select></label>
+        </div>
+        <div class="fpanel players-panel" id="players-panel">
+          <div class="fpanel__head" id="players-head"><h3>Players</h3><span class="note">drag to reorder · click to select</span></div>
+          <div class="fpanel__body"><div class="rows" id="player-cards"></div></div>
+        </div>
+      </div>
 
-      <aside class="colr">
-        <h2 class="sec">Racer</h2>
-        <div id="racer-pane"><p class="note">Select a pawn or a player to read their card.</p></div>
-        <h2 class="sec">Log</h2>
-        <form class="tbtn-row" id="chat-form" autocomplete="off" style="margin-bottom:6px">
-          <input type="text" id="chat-input" placeholder="Say something…" maxlength="140" style="flex:1">
-          <button class="tbtn" type="submit">Send</button>
-        </form>
-        <div class="code log" id="log"></div>
-      </aside>
+      <!-- bottom-left: the racer card -->
+      <div class="hud hud-bl">
+        <div class="fpanel racer-pane" id="racer-pane"><p class="note" style="padding:12px 14px">Select a pawn or a player to read their card.</p></div>
+      </div>
+
+      <!-- bottom-right: log & chat -->
+      <div class="hud hud-br">
+        <div class="fpanel log-panel" id="log-panel">
+          <div class="fpanel__head" id="log-head"><h3>Log</h3><span class="note" id="log-count"></span></div>
+          <div class="fpanel__body">
+            <form class="chat-form" id="chat-form" autocomplete="off">
+              <input type="text" id="chat-input" placeholder="Say something…" maxlength="140">
+              <button class="btn btn--sm" type="submit">Send</button>
+            </form>
+            <div class="log" id="log"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 
@@ -220,22 +239,22 @@
     <div class="overlay__panel">
       <div class="overlay__head"><h2 id="create-title">Create your racers</h2><span class="note" id="create-progress"></span></div>
       <div class="create-layout">
-        <div>
-          <h2 class="sec" id="create-form-title">New racer</h2>
-          <div class="field"><label class="lbl" for="c-name">Name</label><input type="text" id="c-name" maxlength="24" placeholder="e.g. Disco Yeti"></div>
-          <div class="field"><label class="lbl" for="c-tag">Tagline (optional)</label><input type="text" id="c-tag" maxlength="40" placeholder="e.g. Can't stop the groove"></div>
-          <div class="field"><label class="lbl" for="c-text">Ability</label><textarea id="c-text" rows="3" maxlength="260" placeholder="What does it do? Keep it simple enough to play by hand."></textarea></div>
-          <div class="field"><label class="lbl" for="c-emoji">Emoji</label><input type="text" id="c-emoji" maxlength="8" placeholder="Pick one below or type your own"><div class="emoji-picker" id="emoji-picker"></div></div>
-          <label class="lbl">Portrait</label>
+        <div class="panel panel--flat">
+          <h3 id="create-form-title">New racer</h3>
+          <div class="field mt-12"><span class="eyebrow">Name</span><input type="text" id="c-name" maxlength="24" placeholder="e.g. Disco Yeti"></div>
+          <div class="field"><span class="eyebrow">Tagline (optional)</span><input type="text" id="c-tag" maxlength="40" placeholder="e.g. Can't stop the groove"></div>
+          <div class="field"><span class="eyebrow">Ability</span><textarea id="c-text" rows="3" maxlength="260" placeholder="What does it do? Keep it simple enough to play by hand."></textarea></div>
+          <div class="field"><span class="eyebrow">Emoji</span><input type="text" id="c-emoji" maxlength="8" placeholder="Pick one below or type your own"><div class="emoji-picker" id="emoji-picker"></div></div>
+          <span class="eyebrow">Portrait</span>
           <div class="sketch mt-8"><canvas id="c-canvas" width="240" height="160"></canvas><div class="sketch__tools" id="sketch-tools"></div></div>
-          <label class="lbl mt-8" style="display:block">Pawn shows</label>
-          <div class="pawn-choice"><button class="tbtn active" id="pawn-art" type="button">Portrait</button><button class="tbtn" id="pawn-emoji" type="button">Emoji</button></div>
-          <div class="tbtn-row mt-12"><button class="pbtn pbtn--go" id="c-save" style="width:auto;padding-right:12px"><i>＋</i>Save racer</button><button class="tbtn" id="c-cancel" hidden>Cancel edit</button></div>
+          <span class="eyebrow mt-8" style="display:block">Pawn shows</span>
+          <div class="pawn-choice"><button class="btn btn--sm active" id="pawn-art" type="button">Portrait</button><button class="btn btn--sm" id="pawn-emoji" type="button">Emoji</button></div>
+          <div class="pills mt-12" style="gap:8px"><button class="btn btn--primary" id="c-save">Save racer</button><button class="btn" id="c-cancel" hidden>Cancel edit</button></div>
         </div>
         <div>
-          <h2 class="sec">Progress</h2>
-          <div class="status-list lrows" id="create-status"></div>
-          <div class="tbtn-row mt-8"><button class="pbtn pbtn--go" id="create-start-btn" hidden style="width:auto;padding-right:12px"><i>▶</i>Start the draft</button><span class="note" id="create-wait"></span></div>
+          <div class="sec"><h3>Progress</h3></div>
+          <div class="rows status-list" id="create-status"></div>
+          <div class="pills mt-8" style="gap:8px;align-items:center"><button class="btn btn--primary" id="create-start-btn" hidden>Start the draft</button><span class="note" id="create-wait"></span></div>
           <div class="card-grid mt-16" id="create-cards"></div>
         </div>
       </div>
@@ -249,7 +268,7 @@
       <div class="pick-order" id="pick-order"></div>
       <div class="now-picking" id="now-picking"></div>
       <div class="card-grid" id="draft-pool"></div>
-      <div class="lrows mt-16" id="draft-stables"></div>
+      <div class="rows mt-16" id="draft-stables"></div>
     </div>
   </div>
 
@@ -257,7 +276,7 @@
   <div class="overlay" id="overlay-lineup" hidden>
     <div class="overlay__panel">
       <div class="overlay__head"><h2 id="lineup-title">Who's racing?</h2></div>
-      <div class="status-list lrows" id="lineup-status"></div>
+      <div class="rows status-list" id="lineup-status"></div>
       <p class="note" id="lineup-hint"></p>
       <div class="card-grid mt-12" id="lineup-cards"></div>
     </div>
@@ -269,7 +288,7 @@
       <div class="overlay__head"><h2 id="results-title">Race results</h2></div>
       <div class="result-list" id="results-list"></div>
       <p class="note" id="results-hint"></p>
-      <div class="modal__actions"><button class="pbtn pbtn--go" id="continue-btn" hidden style="width:auto;padding-right:12px"><i>➜</i>Continue</button></div>
+      <div class="modal__actions"><button class="btn btn--primary" id="continue-btn" hidden>Continue</button></div>
     </div>
   </div>
 
@@ -278,7 +297,7 @@
     <div class="overlay__panel overlay__panel--narrow">
       <div class="overlay__head"><h2>Final standings</h2></div>
       <div class="result-list" id="final-list"></div>
-      <div class="modal__actions"><button class="pbtn" id="again-btn" hidden style="width:auto;padding-right:12px"><i>↺</i>Back to lobby</button></div>
+      <div class="modal__actions"><button class="btn" id="again-btn" hidden>Back to lobby</button></div>
     </div>
   </div>
 
@@ -293,7 +312,7 @@
   <!-- ══════════════ GALLERY ══════════════ -->
   <div class="overlay modal" id="modal-gallery" hidden>
     <div class="overlay__panel gallery-panel">
-      <div class="overlay__head"><h2>All cards</h2><button class="tbtn" id="gallery-close">Close</button></div>
+      <div class="overlay__head"><h2>All cards</h2><button class="btn btn--sm" id="gallery-close">Close</button></div>
       <div class="gallery-tabs" id="gallery-tabs"></div>
       <input type="text" id="gallery-search" placeholder="Search by name or ability…" autocomplete="off">
       <div class="card-grid mt-12" id="gallery-grid"></div>
@@ -303,24 +322,24 @@
   <!-- ══════════════ HELP ══════════════ -->
   <div class="overlay modal" id="modal-help" hidden>
     <div class="overlay__panel overlay__panel--narrow help-text">
-      <div class="overlay__head"><h2>How this works</h2><button class="tbtn" id="help-close">Close</button></div>
+      <div class="overlay__head"><h2>How this works</h2><button class="btn btn--sm" id="help-close">Close</button></div>
       <p><b>The tournament</b> is a series of races. Before a race there may be a <b>draft</b> (or a <b>create-your-own-racer</b> round first), then everyone picks <b>which racer runs</b>, then you <b>race</b>, then points are handed out.</p>
       <p><b>Drafting</b> goes in snake order (first to last, then last to first). Click a card to read it, then hit Draft.</p>
-      <p><b>Racing:</b> on your turn hit Roll, then move your pawn by clicking it and clicking a space (or drag it). Read your racer's card and apply the ability yourselves — nothing is enforced, and <b>anyone can move any pawn</b>, so abilities that shove other racers are easy to resolve. Hit End turn when you're done.</p>
-      <p><b>Board squares:</b> 🪜 ladders, 🛝 chutes, ⭐ point squares and 🍌 trip squares apply themselves when you land. ⚡ boost and 🌬️ setback squares are yours to apply: with the pawn selected, an Apply button shows in the left rail. Random ones are re-rolled every race. Undo reverses all of it.</p>
-      <p><b>Flip card</b> turns over the top card of the undrafted deck for abilities that ask for one (Inventor, Chameleon…) or just for chaos.</p>
-      <p><b>Finishing:</b> drop a pawn on GOAL to record its place. The host hits End race when enough racers are in, and can tweak the points before continuing.</p>
-      <p><b>Drawing:</b> hit Draw to scribble on the board. Hide drawings if it gets busy. The host can mute anyone who goes rogue.</p>
+      <p><b>Racing:</b> on your turn hit Roll, then move your pawn by clicking it and clicking a tile (or drag it). Read your racer's card and apply the ability yourselves — nothing is enforced, and <b>anyone can move any pawn</b>, so abilities that shove other racers are easy to resolve. Hit End turn when you're done.</p>
+      <p><b>Board tiles:</b> ladders, chutes, point tiles and trip tiles apply themselves when you land. A ladder tile reads ↑ and its target, a chute tile ↓. Boost and setback tiles (+3, −2) are yours to apply: with the pawn selected, an Apply button shows in the toolbar. Random ones are re-rolled every race. Undo reverses all of it.</p>
+      <p><b>Flip card</b> turns over the top card of the undrafted deck for abilities that ask for one, or just for chaos.</p>
+      <p><b>Finishing:</b> drop a pawn on the END tile to record its place. The host hits End race when enough racers are in, and can tweak the points before continuing.</p>
+      <p><b>Drawing:</b> hit the pen to scribble on the board. Hide drawings if it gets busy. The host can mute anyone who goes rogue.</p>
       <p><b>Shortcuts:</b> type a number to move your pawn that far (a minus sign moves back, Enter applies it right away) · R roll · N end turn · U undo · D draw mode · Esc deselects and closes things.</p>
       <p><b>Cards and boards:</b> edit card text in <b>js/cards.js</b> and boards in <b>js/boards.js</b>.</p>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="js/config.js?v=20260906j"></script>
-  <script src="js/client.js?v=20260906j"></script>
-  <script src="js/cards.js?v=20260906j"></script>
-  <script src="js/boards.js?v=20260906j"></script>
-  <script src="js/game.js?v=20260906j"></script>
+  <script src="js/config.js?v=20260906m"></script>
+  <script src="js/client.js?v=20260906m"></script>
+  <script src="js/cards.js?v=20260906m"></script>
+  <script src="js/boards.js?v=20260906m"></script>
+  <script src="js/game.js?v=20260906m"></script>
 </body>
 </html>

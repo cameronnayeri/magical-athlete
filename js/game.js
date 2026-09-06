@@ -53,14 +53,29 @@ function trackLen() { return boardDef().length; }
 // The board's built-in squares plus this race's random ones
 function effectiveSpecials() { return { ...(boardDef().specials || {}), ...(state.squares || {}) }; }
 function randomSquareNote(s) {
-  const on = [s.randomBoost && '⚡ boost & setback', s.randomChutes && '🪜 chutes & ladders', s.randomStars && '⭐ stars & peels'].filter(Boolean);
-  return on.length && s.squareCount > 0 ? `Random each race: ${s.squareCount} squares of ${on.join(', ')}.` : '';
+  const on = [s.randomBoost && 'boost & setback', s.randomChutes && 'chutes & ladders', s.randomStars && 'stars & peels'].filter(Boolean);
+  return on.length && s.squareCount > 0 ? `Plus ${s.squareCount} random ${on.join(', ')} tiles each race.` : '';
 }
 function GOAL() { return trackLen() + 1; }
 function applyTheme(t) {
   document.documentElement.dataset.theme = t;
   try { localStorage.setItem('ma_theme', t); } catch {}
   ['theme-select', 'theme-select-game'].forEach(id => { const el = $(id); if (el) el.value = t; });
+}
+function applyFont(f) {
+  document.documentElement.dataset.font = f;
+  try { localStorage.setItem('ma_font', f); } catch {}
+  ['font-select', 'font-select-game'].forEach(id => { const el = $(id); if (el) el.value = f; });
+}
+// Board zoom (the board is drawn at 1:1 and scaled as a whole, with a slight squash for the top-down look)
+let boardZoom = 1;
+const TILT = 0.86;
+function applyZoom() {
+  const tilt = $('board-tilt'); const svg = $('board-svg'); if (!tilt || !svg) return;
+  const W = +svg.getAttribute('width'), H = +svg.getAttribute('height');
+  tilt.style.transform = `scale(${boardZoom}) scaleY(${TILT})`;
+  tilt.style.width = Math.round(W * boardZoom) + 'px';
+  tilt.style.height = Math.round(H * boardZoom * TILT) + 'px';
 }
 // "3,1 | 4,2 | 4,2 | 5,3" → the points row for the given race (the last row repeats for extra races)
 function pointsTable(st = state, race = st.race || 1) {
@@ -117,6 +132,7 @@ async function init() {
   $('code-chip').textContent = lobbyCode;
   if (LOCAL_MODE) $('local-chip').hidden = false;
   applyTheme(document.documentElement.dataset.theme || 'light');
+  applyFont(document.documentElement.dataset.font || 'sans');
 
   [lobby, players, strokes, madeCards] = await Promise.all([
     store.getLobby(lobbyCode), store.getPlayers(lobbyCode), store.getStrokes(lobbyCode), store.getCards(lobbyCode),
@@ -217,8 +233,12 @@ function wireUI() {
   $('c-cancel').onclick = resetCardForm;
   $('create-start-btn').onclick = startCreatedDraft;
   ['theme-select', 'theme-select-game'].forEach(id => { $(id).onchange = () => applyTheme($(id).value); });
-  ['help-link', 'help-link-game'].forEach(id => { $(id).onclick = () => $('modal-help').hidden = false; });
-  $('gallery-link').onclick = () => $('gallery-btn').click();
+  ['font-select', 'font-select-game'].forEach(id => { $(id).onchange = () => applyFont($(id).value); });
+  $('settings-toggle').onclick = () => { $('settings-pop').hidden = !$('settings-pop').hidden; };
+  $('players-head').onclick = () => $('players-panel').classList.toggle('fpanel--collapsed');
+  $('log-head').onclick = () => $('log-panel').classList.toggle('fpanel--collapsed');
+  $('zoom-in').onclick = () => { boardZoom = Math.min(1.8, +(boardZoom + 0.15).toFixed(2)); applyZoom(); };
+  $('zoom-out').onclick = () => { boardZoom = Math.max(0.5, +(boardZoom - 0.15).toFixed(2)); applyZoom(); };
   buildEmojiPicker();
   $('pawn-art').onclick = () => setPawnChoice('art');
   $('pawn-emoji').onclick = () => setPawnChoice('emoji');
@@ -241,7 +261,7 @@ function wireUI() {
   $('player-cards').addEventListener('click', e => {
     const m = e.target.closest('[data-mute]'); if (m) { e.stopPropagation(); return toggleMute(m.dataset.mute); }
     if (sortSuppressClick || e.target.closest('button, [data-card]')) return;
-    const row = e.target.closest('.lrow[data-pid]'); if (!row) return;
+    const row = e.target.closest('.row[data-pid]'); if (!row) return;
     const piece = Object.keys(state.pieces || {}).find(k => state.pieces[k].pid === row.dataset.pid);
     selectedPiece = piece && selectedPiece !== piece ? piece : null;
     focusPid = row.dataset.pid;
@@ -253,8 +273,8 @@ function wireUI() {
     const del = e.target.closest('[data-del]'); if (del) return deleteMadeCard(del.dataset.del);
   });
 
-  makeSortable($('player-cards'), '.lrow[data-pid]', 'y', reorderPlayers);
-  makeSortable($('player-list'), '.lrow[data-pid]', 'y', reorderSeats);
+  makeSortable($('player-cards'), '.row[data-pid]', 'y', reorderPlayers);
+  makeSortable($('player-list'), '.row[data-pid]', 'y', reorderSeats);
 
   // Any card face anywhere opens the card modal (unless a button inside it was clicked, or it was a drag)
   document.addEventListener('click', e => {
@@ -333,11 +353,10 @@ function renderTopbar() {
   chips.innerHTML = gp().map(p => `<span class="score-chip" title="${escapeHtml(p.name)}"><span class="dot" style="background:${p.color}"></span>${escapeHtml(p.name.split(' ')[0])} <b>${state.scores?.[p.id] ?? 0}</b></span>`).join('');
 }
 
-// A Pulp "layer" row: [icon tile][black label bar]
+// A row: [tile][content]
 function lrowHTML({ pid, tile, tileStyle = '', body, cls = '', title = '' }) {
-  return `<div class="lrow ${cls}" ${pid ? `data-pid="${pid}"` : ''} ${title ? `title="${escapeHtml(title)}"` : ''}>
-    <div class="lrow__tile" style="${tileStyle}">${tile}</div>
-    <div class="lrow__bar">${body}</div>
+  return `<div class="row ${cls}" ${pid ? `data-pid="${pid}"` : ''} ${title ? `title="${escapeHtml(title)}"` : ''}>
+    <div class="row__tile" style="${tileStyle}">${tile}</div>${body}
   </div>`;
 }
 
@@ -361,12 +380,12 @@ function renderLobby() {
   let html = sorted.map((p, i) => lrowHTML({
     pid: p.id, title: 'Drag to reorder',
     tile: `<span class="dot${isOnline(p.id) ? '' : ' dot--off'}" style="background:${p.color}" title="${isOnline(p.id) ? 'online' : 'away'}"></span>`,
-    body: `<span class="grow">${i + 1}. ${escapeHtml(p.name)}${p.is_host ? ' <span class="dim">host</span>' : ''}${p.id === myId ? ' <span class="hi">you</span>' : ''}</span>
-      <button class="ibtn" data-seat="${p.id}" data-dir="-1" title="Move up" ${i === 0 ? 'disabled' : ''}>▲</button>
-      <button class="ibtn" data-seat="${p.id}" data-dir="1" title="Move down" ${i === sorted.length - 1 ? 'disabled' : ''}>▼</button>
-      ${host && p.id !== myId ? `<button class="ibtn" data-kick="${p.id}" title="Remove player">✕</button>` : ''}`,
+    body: `<span class="grow">${i + 1}. ${escapeHtml(p.name)}${p.is_host ? ' <span class="pill pill--c">host</span>' : ''}${p.id === myId ? ' <span class="pill pill--a">you</span>' : ''}</span>
+      <button class="ibtn ibtn--xs" data-seat="${p.id}" data-dir="-1" title="Move up" ${i === 0 ? 'disabled' : ''}>▲</button>
+      <button class="ibtn ibtn--xs" data-seat="${p.id}" data-dir="1" title="Move down" ${i === sorted.length - 1 ? 'disabled' : ''}>▼</button>
+      ${host && p.id !== myId ? `<button class="ibtn ibtn--xs" data-kick="${p.id}" title="Remove player">✕</button>` : ''}`,
   })).join('');
-  for (let i = players.length; i < s.maxPlayers; i++) html += lrowHTML({ cls: 'lrow--empty', tile: '', body: '<span class="grow">Waiting for a player…</span>' });
+  for (let i = players.length; i < s.maxPlayers; i++) html += lrowHTML({ cls: 'row--empty', tile: '', body: '<span class="grow">Waiting for a player…</span>' });
   $('player-list').innerHTML = html;
   $('player-count').textContent = `${players.length} / ${s.maxPlayers}`;
   document.querySelectorAll('.swatch').forEach(sw => sw.classList.toggle('active', sw.dataset.color === me?.color));
@@ -445,8 +464,7 @@ function legendHTML(specials) {
 function renderBoardPreview(def) {
   const box = $('board-preview');
   if (box.dataset.id !== def.id) { box.innerHTML = boardSVG(def, { id: 'board-preview-svg', preview: true }); box.dataset.id = def.id; }
-  $('board-blurb').textContent = `${def.emoji} ${def.name} · ${def.length} spaces. ${def.blurb} ${randomSquareNote(S())}`;
-  $('board-legend-lobby').innerHTML = legendHTML(def.specials);
+  $('board-blurb').textContent = `${def.name} · ${def.length} spaces. ${def.blurb} ${randomSquareNote(S())}`;
 }
 async function saveSettings() {
   if (!isHost()) return;
@@ -495,11 +513,13 @@ function renderGame() {
   $('end-race-btn').hidden = !(isHost() && racing);
   const fo = state.finishOrder || [];
   $('end-race-btn').classList.toggle('active', fo.length >= RS().finishersToEnd);
+  $('draw-tools').hidden = !drawMode;
   $('board-hint').textContent = drawMode
-    ? 'Draw mode: scribble on the board. Hit Draw again (or Esc) to go back to moving pawns.'
+    ? 'Draw mode: scribble on the board. Hit the pen again (or Esc) to go back to moving pawns.'
     : racing
-      ? (selectedPiece ? 'Click any space or pawn to move there, or type a number to move that far. Esc deselects.' : 'Click or drag any pawn to move it, or type a number to move your own pawn. Nothing is enforced — read the cards and play it out.')
+      ? (selectedPiece ? 'Click any tile or pawn to move there, or type a number. Esc deselects.' : 'Click or drag any pawn to move it, or type a number to move your own pawn.')
       : '';
+  $('log-count').textContent = `${(state.log || []).length}`;
 }
 
 // Board geometry — spaces sit wherever the board's path puts them (see js/boards.js)
@@ -514,8 +534,8 @@ function buildBoard() {
   const def = boardDef();
   const specials = effectiveSpecials();
   $('board').innerHTML = boardSVG(def, { cls: drawMode ? 'drawing' : '', specials });
-  $('board-legend').innerHTML = legendHTML(specials);
   builtBoardKey = boardKey();
+  applyZoom();
 
   const svg = $('board-svg');
   svg.addEventListener('click', e => {
@@ -543,13 +563,15 @@ function renderPieces() {
     const n = list.length;
     list.forEach((p, k) => {
       let ox = 0, oy = 0;
-      // Stacked pawns sit on the tile's corners so they stay on the grid
-      if (n > 1) { const off = [[-8, -8], [8, 8], [8, -8], [-8, 8], [0, 0], [-8, 0], [8, 0], [0, -8]][k % 8]; ox = off[0]; oy = off[1]; }
-      const card = CARD(p.cardId), R = n > 1 ? 12 : 16;
+      // Stacked pawns spread across the tile
+      if (n > 1) { const off = [[-10, -8], [10, 8], [10, -8], [-10, 8], [0, 0], [-10, 0], [10, 0], [0, -8]][k % 8]; ox = off[0]; oy = off[1]; }
+      const card = CARD(p.cardId), R = n > 1 ? 11 : 14;
       const face = (card.art && card.pawn !== 'emoji')
         ? `<image class="piece__art" href="${card.art}" x="${-R}" y="${-R}" width="${2 * R}" height="${2 * R}" clip-path="url(#clip${R})" preserveAspectRatio="xMidYMid slice"/><circle class="piece__ball" r="${R}" fill="none"/>`
-        : `<text class="piece__emoji" style="font-size:${R > 12 ? 18 : 14}px">${card.emoji}</text>`;
-      s += `<g class="piece${p.id === selectedPiece ? ' piece--selected' : ''}" data-piece="${p.id}" transform="translate(${cx + ox},${cy + oy})">
+        : `<text class="piece__emoji" style="font-size:${R > 12 ? 16 : 13}px">${card.emoji}</text>`;
+      s += `<g class="piece${p.id === selectedPiece ? ' piece--selected' : ''}" data-piece="${p.id}" transform="translate(${cx + ox},${cy + oy - 4})">
+        <ellipse class="piece__base" cx="0" cy="${R - 2}" rx="${R}" ry="${R * 0.45}"/>
+        <circle class="piece__ring" r="${R + 4}"/>
         <circle class="piece__ball" r="${R}" fill="${pColor(p.pid)}"/>${face}
         ${card.pawns > 1 ? `<text class="piece__tag" y="${R + 9}">${p.n + 1}</text>` : ''}
         ${state.skips?.[p.pid] ? `<text class="piece__badge" x="${R - 6}" y="${-R + 4}" text-anchor="middle" dominant-baseline="central"><title>Tripped — misses next turn</title>🍌</text>` : ''}
@@ -559,10 +581,11 @@ function renderPieces() {
   layer.innerHTML = s;
 }
 
+// Screen → board coordinates. The board is only ever scaled (zoom + the top-down squash),
+// so the mapping is a straight ratio against its on-screen box.
 function svgPoint(e) {
-  const svg = $('board-svg'); const pt = svg.createSVGPoint();
-  pt.x = e.clientX; pt.y = e.clientY;
-  return pt.matrixTransform(svg.getScreenCTM().inverse());
+  const svg = $('board-svg'); const r = svg.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * (+svg.getAttribute('width') / r.width), y: (e.clientY - r.top) * (+svg.getAttribute('height') / r.height) };
 }
 function onPointerDown(e) {
   if (drawMode) {
@@ -685,7 +708,8 @@ function toggleDraw() {
 function renderDrawBar() {
   const muted = isMuted(myId);
   $('draw-toggle').disabled = muted;
-  $('draw-toggle').innerHTML = muted ? '<i>🔇</i>Muted' : (drawMode ? '<i>✎</i>Drawing…' : '<i>✎</i>Draw');
+  $('draw-toggle').textContent = muted ? '🔇' : '✎';
+  $('draw-toggle').title = muted ? 'The host muted your drawing' : 'Draw on the board (D)';
   if (muted && drawMode) { drawMode = false; $('draw-toggle').classList.remove('active'); $('board-svg')?.classList.remove('drawing'); }
   $('draw-clear-all').hidden = !isHost();
 }
@@ -712,8 +736,7 @@ function renderTurnBox() {
   const order = state.raceOrder || [];
   const cur = state.phase === 'race' ? order[state.turn?.index || 0] : null;
   $('turn-sub').textContent = state.phase === 'race' ? `Race ${state.race} of ${RS().races} · Turn ${state.turn?.number || 1}` : phaseLabel();
-  $('turn-who').textContent = cur ? `${pName(cur)}${cur === myId ? ' (you)' : ''}` : '—';
-  $('turn-who').style.color = cur ? pColor(cur) : '';
+  $('turn-who').innerHTML = cur ? `<span class="dot" style="background:${pColor(cur)}"></span>${escapeHtml(pName(cur))}${cur === myId ? ' (you)' : ''}` : '—';
   $('turn-trip').hidden = !(cur && state.skips?.[cur]);
 
   const lr = state.lastRoll;
@@ -728,13 +751,14 @@ function renderTurnBox() {
 
   const pc = selectedPiece ? state.pieces?.[selectedPiece] : null;
   $('selected-label').innerHTML = pc
-    ? `Selected: <b>${CARD(pc.cardId).emoji} ${escapeHtml(CARD(pc.cardId).name)}</b> <span class="hint">(${escapeHtml(pName(pc.pid))})</span> on ${spaceName(pc.space)}`
+    ? `<b>${CARD(pc.cardId).emoji} ${escapeHtml(CARD(pc.cardId).name)}</b> · ${escapeHtml(pName(pc.pid))} · ${spaceName(pc.space)}`
     : 'Click a pawn to select it';
   const racing = state.phase === 'race';
   ['roll-btn', 'roll2-btn', 'next-turn-btn', 'draw-btn'].forEach(id => $(id).disabled = !racing);
   ['mv-back', 'mv-fwd', 'mv-start'].forEach(id => $(id).disabled = !racing || !pc);
   $('mv-roll').disabled = !racing || !pc || !lr;
   $('undo-btn').disabled = !racing || !state.undo;
+  $('pawn-tools').hidden = !racing;
   // Boost / setback squares are applied by hand
   const sq = pc ? effectiveSpecials()[pc.space] : null;
   const applyBtn = $('apply-square');
@@ -755,9 +779,8 @@ function renderRacerPane() {
   if (!pid || !cid) { el.innerHTML = '<p class="note">Select a pawn or a player to read their card.</p>'; return; }
   const place = (state.finishOrder || []).indexOf(pid);
   const pieces = Object.values(state.pieces || {}).filter(p => p.pid === pid);
-  const pos = place >= 0 ? `finished ${ordinal(place + 1)}` : pieces.length ? pieces.map(p => p.space === 0 ? 'on Start' : 'on space ' + p.space).join(' / ') : 'not on the track';
-  el.innerHTML = lrowHTML({ tile: `<span class="dot" style="background:${pColor(pid)}"></span>`, body: `<span class="grow">${escapeHtml(pName(pid))}</span><span class="dim">${pos} · ${state.scores?.[pid] ?? 0} pts</span>` })
-    + `<div class="mt-8">${cardHTML(CARD(cid), { static: true })}</div>`;
+  const pos = place >= 0 ? `finished ${ordinal(place + 1)}` : pieces.length ? pieces.map(p => p.space === 0 ? 'on start' : 'tile ' + p.space).join(' / ') : 'off the track';
+  el.innerHTML = cardHTML(CARD(cid), { static: true, wide: true, owner: pName(pid), ownerColor: pColor(pid), extra: [pos, `${state.scores?.[pid] ?? 0} pts`] });
 }
 
 // Players as Pulp layer rows (drag to reorder, click to select their pawn), plus a grid of every racer's card.
@@ -775,27 +798,17 @@ function renderPlayers() {
     const pieces = Object.values(state.pieces || {}).filter(p => p.pid === pid);
     const pos = place >= 0 ? `🏁 ${ordinal(place + 1)}` : pieces.length ? pieces.map(p => p.space === 0 ? 'start' : 'sp ' + p.space).join(' / ') : '';
     const selected = selectedPiece && state.pieces?.[selectedPiece]?.pid === pid;
-    const muteBtn = isHost() && pid !== myId ? `<button class="ibtn${isMuted(pid) ? ' on' : ''}" data-mute="${pid}" title="${isMuted(pid) ? 'Allow drawing' : 'Mute drawing'}">${isMuted(pid) ? '🔇' : '🔊'}</button>` : (isMuted(pid) ? '<span class="dim" title="muted from drawing">🔇</span>' : '');
+    const muteBtn = isHost() && pid !== myId ? `<button class="ibtn ibtn--xs${isMuted(pid) ? ' on' : ''}" data-mute="${pid}" title="${isMuted(pid) ? 'Allow drawing' : 'Mute drawing'}">${isMuted(pid) ? '🔇' : '🔊'}</button>` : (isMuted(pid) ? '<span class="dim" title="muted from drawing">🔇</span>' : '');
     return lrowHTML({
       pid, title: 'Drag to change the turn order · click to select their pawn',
-      cls: (pid === cur ? 'lrow--current ' : '') + (place >= 0 ? 'lrow--done ' : '') + (selected ? 'lrow--selected' : ''),
-      tile: card ? (card.art && card.pawn !== 'emoji' ? `<img src="${card.art}" alt="" style="width:26px;height:26px;object-fit:cover">` : card.emoji) : '·',
-      tileStyle: `box-shadow: inset 4px 0 0 ${pColor(pid)}`,
-      body: `<span class="grow">${i + 1}. ${escapeHtml(pName(pid))}${pid === myId ? ' <span class="hi">you</span>' : ''}${card ? ` <span class="dim">${escapeHtml(card.name)}</span>` : ''}</span>
-        ${state.skips?.[pid] ? '<span class="hi" title="Tripped — misses next turn">🍌</span>' : ''}
+      cls: (pid === cur ? 'row--current ' : '') + (place >= 0 ? 'row--done ' : '') + (selected ? 'row--selected' : ''),
+      tile: card ? (card.art && card.pawn !== 'emoji' ? `<img src="${card.art}" alt="">` : card.emoji) : '·',
+      tileStyle: `box-shadow: inset 0 -3px 0 ${pColor(pid)}`,
+      body: `<span class="grow">${escapeHtml(pName(pid))}${pid === myId ? ' <span class="pill pill--a">you</span>' : ''}${card ? ` <span class="dim">${escapeHtml(card.name)}</span>` : ''}</span>
+        ${state.skips?.[pid] ? '<span title="Tripped — misses next turn">🍌</span>' : ''}
         <span class="dim">${pos}${pos ? ' · ' : ''}${state.scores?.[pid] ?? 0} pts</span>${muteBtn}`,
     });
   }).join('');
-
-  // Every racer on the table, full text, so nobody has to ask
-  const tiles = $('racer-tiles');
-  tiles.innerHTML = order.map(pid => {
-    const runner = state.runners?.[pid];
-    const cards = runner ? [runner] : (state.stables?.[pid] || []);
-    const retired = state.retired?.[pid] || [];
-    return cards.map(cid => cardHTML(CARD(cid), { owner: pName(pid), ownerColor: pColor(pid) })).join('')
-      + (retired.length ? `<div class="stable-chips">${retired.map(c => `<span class="mini-chip mini-chip--retired" data-card="${c}">${CARD(c).emoji} ${escapeHtml(CARD(c).name)}</span>`).join('')}</div>` : '');
-  }).join('') || '<p class="note">No racers yet.</p>';
   renderRacerPane();
 }
 
@@ -873,12 +886,9 @@ async function reorderSeats(ids) {
   await Promise.all(order.map((id, k) => store.updatePlayer(id, { seat_order: k })));
 }
 
-// The log reads like Pulp's script box: numbered lines, newest at the top
 function renderLog() {
-  const all = state.log || [];
-  const entries = [...all].reverse().slice(0, 80);
-  $('log').innerHTML = entries.map((e, i) => `<div class="code__line code__line--${e.type || 'info'}"><span class="code__num">${all.length - i}</span><span class="code__text">${escapeHtml(e.text)}</span></div>`).join('')
-    || '<div class="code__line"><span class="code__num">1</span><span class="code__text" style="color:var(--g)">nothing yet</span></div>';
+  const entries = [...(state.log || [])].reverse().slice(0, 80);
+  $('log').innerHTML = entries.map(e => `<div class="log__entry log__entry--${e.type || 'info'}">${escapeHtml(e.text)}</div>`).join('') || '<div class="note">Nothing yet.</div>';
 }
 
 async function sendChat(e) {
@@ -919,7 +929,7 @@ function renderDraft() {
   $('draft-title').textContent = `Draft · before race ${state.race}`;
   $('draft-deck-info').textContent = RS().cardSource === 'create' ? 'Player-made racers' : `${(state.deck || []).length} cards left in the deck`;
   $('pick-order').innerHTML = d.order.map((pid, i) =>
-    `<span class="pick-order__item${i < d.pickIndex ? ' pick-order__item--done' : i === d.pickIndex ? ' pick-order__item--now' : ''}" style="border-color:${pColor(pid)}">${i + 1}. ${escapeHtml(pName(pid))}</span>`).join('');
+    `<span class="pill pill--line pick-order__item${i < d.pickIndex ? ' pick-order__item--done' : i === d.pickIndex ? ' pick-order__item--now' : ''}"><span class="dot" style="background:${pColor(pid)}"></span>${i + 1}. ${escapeHtml(pName(pid))}</span>`).join('');
   $('now-picking').innerHTML = cur
     ? `<span style="color:${pColor(cur)}">${escapeHtml(pName(cur))}</span> is picking${cur === myId ? ' — that\'s you! Click a card to read it, then Draft it.' : (isHost() ? ' <span class="hint">(as host you can pick for them)</span>' : '…')}`
     : 'Draft complete';
@@ -939,8 +949,8 @@ function renderLineup() {
     const v = lu[p.id];
     const status = v === 'none' ? 'sitting out (no racers)' : v ? `✓ ${CARD(v).emoji} ${escapeHtml(CARD(v).name)}` : 'choosing…';
     const first = (state.stables?.[p.id] || [])[0];
-    const hostBtn = (v === null && isHost() && p.id !== myId && first) ? `<button class="tbtn" onclick="chooseRunner('${p.id}', '${first}')">Pick for them</button>` : '';
-    return lrowHTML({ tile: `<span class="dot" style="background:${p.color}"></span>`, body: `<span class="grow">${escapeHtml(p.name)}${p.id === myId ? ' <span class="hi">you</span>' : ''}</span><span class="dim">${status}</span>${hostBtn}` });
+    const hostBtn = (v === null && isHost() && p.id !== myId && first) ? `<button class="btn btn--sm" onclick="chooseRunner('${p.id}', '${first}')">Pick for them</button>` : '';
+    return lrowHTML({ tile: `<span class="dot" style="background:${p.color}"></span>`, body: `<span class="grow">${escapeHtml(p.name)}${p.id === myId ? ' <span class="pill pill--a">you</span>' : ''}</span><span class="dim">${status}</span>${hostBtn}` });
   }).join('');
   const mine = state.stables?.[myId] || [];
   if (lu[myId] === null) {
@@ -1002,11 +1012,11 @@ function initSketch() {
     tools.appendChild(sw);
   });
   const sizeBtn = document.createElement('button');
-  sizeBtn.className = 'tbtn'; sizeBtn.type = 'button'; sizeBtn.textContent = 'Pen: M';
+  sizeBtn.className = 'btn btn--sm'; sizeBtn.type = 'button'; sizeBtn.textContent = 'Pen: M';
   sizeBtn.onclick = () => { sketch.size = sketch.size === 5 ? 12 : sketch.size === 12 ? 2 : 5; sizeBtn.textContent = 'Pen: ' + (sketch.size === 2 ? 'S' : sketch.size === 5 ? 'M' : 'L'); };
   tools.appendChild(sizeBtn);
   const clearBtn = document.createElement('button');
-  clearBtn.className = 'tbtn'; clearBtn.type = 'button'; clearBtn.textContent = 'Clear';
+  clearBtn.className = 'btn btn--sm'; clearBtn.type = 'button'; clearBtn.textContent = 'Clear';
   clearBtn.onclick = clearSketch;
   tools.appendChild(clearBtn);
 
@@ -1044,7 +1054,7 @@ function resetCardForm() {
   setPawnChoice('art');
   clearSketch();
   $('create-form-title').textContent = 'New racer';
-  $('c-save').innerHTML = '<i>＋</i>Save racer';
+  $('c-save').textContent = 'Save racer';
   $('c-cancel').hidden = true;
   renderCreate();
 }
@@ -1057,7 +1067,7 @@ function editMadeCard(id) {
   clearSketch();
   if (c.art) { const img = new Image(); img.onload = () => { sketch.ctx.drawImage(img, 0, 0); sketch.dirty = true; }; img.src = c.art; }
   $('create-form-title').textContent = `Editing ${c.name}`;
-  $('c-save').innerHTML = '<i>✓</i>Save changes';
+  $('c-save').textContent = 'Save changes';
   $('c-cancel').hidden = false;
   $('c-name').focus();
 }
@@ -1101,7 +1111,7 @@ function renderCreate() {
   $('create-progress').textContent = `${cards.length} / ${total} racers made`;
   $('create-status').innerHTML = gp().map(p => {
     const n = cards.filter(c => c.player_id === p.id).length;
-    return lrowHTML({ tile: `<span class="dot" style="background:${p.color}"></span>`, body: `<span class="grow">${escapeHtml(p.name)}${p.id === myId ? ' <span class="hi">you</span>' : ''}</span><span class="${n >= quota ? 'hi' : 'dim'}">${n >= quota ? '✓ ' : ''}${n} / ${quota}</span>` });
+    return lrowHTML({ tile: `<span class="dot" style="background:${p.color}"></span>`, body: `<span class="grow">${escapeHtml(p.name)}${p.id === myId ? ' <span class="pill pill--a">you</span>' : ''}</span><span class="${n >= quota ? 'hi' : 'dim'}">${n >= quota ? '✓ ' : ''}${n} / ${quota}</span>` });
   }).join('');
   const mine = cards.filter(c => c.player_id === myId).length;
   $('c-save').disabled = !editingCardId && mine >= quota;
@@ -1111,7 +1121,7 @@ function renderCreate() {
   $('create-wait').textContent = isHost() ? (done ? 'Everyone is done!' : 'You can start early — anyone still missing cards drafts from what exists.') : (done ? 'Waiting for the host to start the draft…' : (mine >= quota ? 'Waiting for the others…' : `Make ${quota - mine} more racer(s).`));
   $('create-cards').innerHTML = cards.map(c => {
     const own = c.player_id === myId;
-    const tools = own ? `<div class="card-wrap__own"><button class="tbtn" data-edit="${c.id}">✎ Edit</button><button class="tbtn" data-del="${c.id}">Delete</button></div>` : '';
+    const tools = own ? `<div class="card-wrap__own"><button class="btn btn--sm" data-edit="${c.id}">✎ Edit</button><button class="btn btn--sm" data-del="${c.id}">Delete</button></div>` : '';
     return `<div class="card-wrap">${cardHTML(CARD(c.id))}${tools}</div>`;
   }).join('') || '<p class="hint">No racers yet — be the first!</p>';
 }
@@ -1136,31 +1146,26 @@ async function startCreatedDraft() {
 }
 
 // ── Cards ────────────────────────────────────────────────────
-// A racer card in the Pulp idiom: [emoji tile][name bar] over a numbered "behavior" text block
+// A racer card: portrait (or big emoji) on the left or top, name, ability, and a row of pill tags
 function cardHTML(c, o = {}) {
   const cls = ['card'];
   if (o.static) cls.push('card--static');
   if (o.pickme) cls.push('card--pickme');
-  const setLabel = c.set === 'experimental' ? 'experimental' : c.set === 'made' ? `made by ${escapeHtml(pName(c.by))}` : c.set;
-  const lines = wrapLines(c.text, o.static ? 40 : 34);
+  if (o.wide) cls.push('card--wide');
+  const setLabel = c.set === 'made' ? `by ${escapeHtml(pName(c.by))}` : c.set;
+  const pills = [`<span class="pill pill--a">${setLabel}</span>`, `<span class="pill pill--b">#${c.number}</span>`];
+  if (c.pawns > 1) pills.push('<span class="pill pill--c">2 pawns</span>');
+  if (o.owner) pills.push(`<span class="pill pill--d"><span class="dot" style="background:${o.ownerColor}"></span>${escapeHtml(o.owner)}</span>`);
+  (o.extra || []).forEach(x => pills.push(`<span class="pill pill--line">${escapeHtml(x)}</span>`));
   return `<div class="${cls.join(' ')}" style="--card-color:${o.ownerColor || c.color}" data-card="${c.id}">
-    <div class="card__head">
-      <div class="card__tile">${c.emoji}</div>
-      <div class="card__bar"><span class="card__name">${escapeHtml(c.name)}</span><span class="card__tag">${escapeHtml(o.owner ? o.owner : (c.tag || ''))}</span></div>
+    <div class="card__art">${c.art ? `<img src="${c.art}" alt="">` : c.emoji}</div>
+    <div class="card__body">
+      <div class="card__name">${escapeHtml(c.name)}</div>
+      ${c.tag ? `<div class="card__tag">${escapeHtml(c.tag)}</div>` : ''}
+      <p class="card__text">${escapeHtml(c.text)}</p>
+      <div class="pills">${pills.join('')}</div>
     </div>
-    ${c.art ? `<div class="card__art"><img src="${c.art}" alt=""></div>` : ''}
-    <div class="card__body">${lines.map((l, i) => `<div class="code__line"><span class="code__num">${i + 1}</span><span class="code__text">${escapeHtml(l)}</span></div>`).join('')}</div>
-    <div class="card__foot"><span>${setLabel}</span><span>#${c.number}${c.pawns > 1 ? ' · 2 pawns' : ''}</span></div>
   </div>`;
-}
-// Greedy word-wrap so card text gets line numbers like a script
-function wrapLines(text, width) {
-  const out = []; let line = '';
-  for (const w of String(text).split(/\s+/)) {
-    if ((line + ' ' + w).trim().length > width && line) { out.push(line); line = w; } else line = (line + ' ' + w).trim();
-  }
-  if (line) out.push(line);
-  return out.length ? out : [''];
 }
 
 function openCardModal(cardId) {
@@ -1171,8 +1176,8 @@ function openCardModal(cardId) {
   act.innerHTML = '';
   const add = (label, primary, fn) => {
     const b = document.createElement('button');
-    b.className = primary ? 'pbtn pbtn--go' : 'tbtn';
-    if (primary) { b.style.width = 'auto'; b.style.paddingRight = '12px'; b.innerHTML = '<i>➜</i>' + escapeHtml(label); } else b.textContent = label;
+    b.className = primary ? 'btn btn--primary' : 'btn';
+    b.textContent = label;
     b.onclick = fn; act.appendChild(b);
   };
   if (state.phase === 'draft' && canPickNow() && state.draft.pool.includes(cardId)) {
@@ -1193,7 +1198,7 @@ function buildGalleryTabs() {
   if (madeCards.length) tabs.push(['made', '🎨 Player-made']);
   tabs.push(['undrafted', 'Undrafted this race']);
   if (!tabs.some(t => t[0] === galleryTab)) galleryTab = 'all';
-  $('gallery-tabs').innerHTML = tabs.map(([k, l]) => `<button class="tbtn${k === galleryTab ? ' active' : ''}" data-tab="${k}">${l}</button>`).join('');
+  $('gallery-tabs').innerHTML = tabs.map(([k, l]) => `<button class="btn btn--sm${k === galleryTab ? ' active' : ''}" data-tab="${k}">${l}</button>`).join('');
   $('gallery-tabs').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { galleryTab = b.dataset.tab; buildGalleryTabs(); renderGallery(); });
 }
 function renderGallery() {
