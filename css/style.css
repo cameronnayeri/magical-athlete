@@ -60,6 +60,9 @@
 :root[data-theme="dark"] .cell--chute { fill: #5a2530; }
 :root[data-theme="dark"] .cell--point { fill: #5c4a10; }
 :root[data-theme="dark"] .cell--trip { fill: #5a5420; }
+:root[data-theme="dark"] .cell--forward { fill: #174a5c; }
+:root[data-theme="dark"] .cell--back { fill: #5c3a22; }
+:root[data-theme="dark"] .cell-badge { fill: #f2eeff; stroke: #1d1b2e; }
 :root[data-theme="dark"] .cell:hover { fill: #2a4a5c; }
 :root[data-theme="dark"] .result-row--2 { background: #3a3950; }
 :root[data-theme="dark"] .result-row--3 { background: #5a3a22; }
@@ -265,6 +268,9 @@ input:focus, select:focus { box-shadow: 0 0 0 4px rgba(0,180,216,0.3); }
 .cell--chute { fill: #ffc9cf; }
 .cell--point { fill: #ffe08a; }
 .cell--trip { fill: #fff3a3; }
+.cell--forward { fill: #bfefff; }
+.cell--back { fill: #ffd6bf; }
+.cell-badge { font-family: var(--font-title); fill: #1d1b2e; paint-order: stroke; stroke: #fff; stroke-width: 3px; pointer-events: none; }
 .cell:hover { fill: #dff6ff; }
 .cell-num { font-family: var(--font-title); fill: var(--ink-soft); pointer-events: none; }
 .cell-label { font-family: var(--font-title); font-size: 13px; fill: #1d1b2e; pointer-events: none; }

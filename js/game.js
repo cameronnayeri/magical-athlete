@@ -12,7 +12,7 @@ const myId      = IDENT.getItem('ma_playerId');
 let lobby = null, players = [], state = {}, me = null;
 let strokes = [], madeCards = [];
 let selectedPiece = null;
-let builtBoardId = null;
+let builtBoardKey = null;
 let pawnChoice = 'art';
 const EMOJI_CHOICES = ['🦄','🐉','🦖','🐙','🦊','🐸','🐼','🦁','🐯','🐨','🐷','🐮','🐔','🦆','🦉','🦇','🐝','🦋','🐌','🐢','🦀','🐟','🐬','🐳','🦈','🐊','🦎','🐍','🦂','🕷️','🤖','👽','👾','🤠','🧟','🧛','🧙','🧚','🧜','🧞','👻','💀','🎃','🤡','👑','🎩','🕶️','🔥','⚡','❄️','🌈','⭐','🌙','☄️','🍕','🍔','🌮','🍩','🎸','🥁','🚗','🚲','🛸','🚁','⚽','🏀','🎯','🎲','💣','🗿','🧸','🎈'];
 let drag = null;
@@ -44,6 +44,12 @@ function myName() { return me?.name || 'Someone'; }
 function isOnline(pid) { const p = players.find(x => x.id === pid); return !!p && (Date.now() - new Date(p.last_seen).getTime()) < 65000; }
 function boardDef() { return BOARD(lobby?.status === 'waiting' ? S().board : (state.board || S().board)); }
 function trackLen() { return boardDef().length; }
+// The board's built-in squares plus this race's random ones
+function effectiveSpecials() { return { ...(boardDef().specials || {}), ...(state.squares || {}) }; }
+function randomSquareNote(s) {
+  const on = [s.randomBoost && '⏩ boost & setback', s.randomChutes && '🪜 chutes & ladders', s.randomStars && '⭐ stars & peels'].filter(Boolean);
+  return on.length ? `Random each race: ${on.join(', ')}.` : '';
+}
 function GOAL() { return trackLen() + 1; }
 function applyTheme(t) {
   document.documentElement.dataset.theme = t;
@@ -321,6 +327,7 @@ function renderLobby() {
   } else {
     $('settings-summary').innerHTML = [
       ['Board', `${bd.emoji} ${bd.name} (${bd.length} spaces)`],
+      ['Random squares', randomSquareNote(s).replace('Random each race: ', '').replace(/\.$/, '') || 'none'],
       ['Racers come from', create ? `players (${s.cardsPerPlayer} each per draft)` : 'the deck'],
       ['Card sets', create ? '—' : ([s.official && 'Official', s.experimental && '⚗️ Experimental', s.custom && 'Custom'].filter(Boolean).join(' + ') || 'none')],
       ['Races', s.races], ['Draft every', `${s.draftEvery} race(s)`], ['Picks per draft', s.picksPerDraft],
@@ -372,16 +379,17 @@ function rebuildBoardOptions(s) {
     sel.dataset.built = key;
   }
 }
-function legendHTML(def) {
-  const notes = { ladder: 'climb up', chute: 'slide down', point: '+1 point', trip: 'miss a turn' };
-  const types = [...new Set(Object.values(def.specials || {}).map(x => x.type))];
-  return types.map(tp => `<span class="chip">${SPECIAL_INFO[tp].emoji} ${SPECIAL_INFO[tp].label} — ${notes[tp]}</span>`).join('');
+function legendHTML(specials) {
+  const notes = { forward: 'jump ahead', back: 'fall back', ladder: 'climb up', chute: 'slide down', point: '+1 point', trip: 'miss a turn' };
+  const order = ['forward', 'back', 'ladder', 'chute', 'point', 'trip'];
+  const types = [...new Set(Object.values(specials || {}).map(x => x.type))].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  return types.filter(tp => SPECIAL_INFO[tp]).map(tp => `<span class="chip">${SPECIAL_INFO[tp].emoji} ${SPECIAL_INFO[tp].label} — ${notes[tp]}</span>`).join('');
 }
 function renderBoardPreview(def) {
   const box = $('board-preview');
   if (box.dataset.id !== def.id) { box.innerHTML = boardSVG(def, { id: 'board-preview-svg' }); box.dataset.id = def.id; }
-  $('board-blurb').textContent = `${def.emoji} ${def.name} · ${def.length} spaces. ${def.blurb}`;
-  $('board-legend-lobby').innerHTML = legendHTML(def);
+  $('board-blurb').textContent = `${def.emoji} ${def.name} · ${def.length} spaces. ${def.blurb} ${randomSquareNote(S())}`;
+  $('board-legend-lobby').innerHTML = legendHTML(def.specials);
 }
 async function saveSettings() {
   if (!isHost()) return;
@@ -444,12 +452,14 @@ function cellXY(i) {
   const p = points[Math.max(0, Math.min(points.length - 1, i))];
   return { x: p.x, y: p.y };
 }
-function ensureBoard() { if (builtBoardId !== boardDef().id) buildBoard(); }
+function boardKey() { return boardDef().id + '|' + JSON.stringify(state.squares || {}); }
+function ensureBoard() { if (builtBoardKey !== boardKey()) buildBoard(); }
 function buildBoard() {
   const def = boardDef();
-  $('board').innerHTML = boardSVG(def, { cls: drawMode ? 'drawing' : '' });
-  $('board-legend').innerHTML = legendHTML(def);
-  builtBoardId = def.id;
+  const specials = effectiveSpecials();
+  $('board').innerHTML = boardSVG(def, { cls: drawMode ? 'drawing' : '', specials });
+  $('board-legend').innerHTML = legendHTML(specials);
+  builtBoardKey = boardKey();
 
   const svg = $('board-svg');
   svg.addEventListener('click', e => {
@@ -1033,10 +1043,11 @@ async function startGame() {
     phase: 'draft', race: 1, players: snap, scores: {}, stables: {}, retired: {}, muted: {},
     deck: shuffle(ids), discard: [], drawn: [], undrafted: [], draft: null, lineup: {}, runners: {}, pieces: {},
     finishOrder: [], raceOrder: [], turn: { index: 0, number: 1 }, lastRoll: null, undo: null, log: [], results: null,
-    createRound: null, drawEpoch: Date.now(), board: BOARD(s.board).id, trackLength: BOARD(s.board).length, skips: {},
+    createRound: null, drawEpoch: Date.now(), board: BOARD(s.board).id, trackLength: BOARD(s.board).length, skips: {}, squares: {},
     settings: {
       races: s.races, draftEvery: s.draftEvery, picksPerDraft: s.picksPerDraft, poolExtra: s.poolExtra, points: s.points,
       retire: s.retire, finishersToEnd: s.finishersToEnd, cardSource: s.cardSource, cardsPerPlayer: s.cardsPerPlayer,
+      randomBoost: s.randomBoost, randomChutes: s.randomChutes, randomStars: s.randomStars,
     },
   };
   snap.forEach(p => { base.scores[p.id] = 0; base.stables[p.id] = []; base.retired[p.id] = []; });
@@ -1151,8 +1162,13 @@ function startRace(t) {
   t.op({ path: ['lastRoll'], value: null });
   t.op({ path: ['undo'], value: null });
   t.op({ path: ['skips'], value: {} });
+  const rs = RS(st);
+  const squares = randomSquares(BOARD(st.board), { boost: rs.randomBoost, chutes: rs.randomChutes, stars: rs.randomStars });
+  t.op({ path: ['squares'], value: squares });
   t.op({ path: ['results'], value: null });
   t.op({ path: ['phase'], value: 'race' });
+  const sqList = Object.entries(squares).sort((a, b) => a[0] - b[0]).map(([i, sp]) => describeSpecial(i, sp).replace(/^\d+: /, `${i} `));
+  if (sqList.length) t.log(`Random squares this race — ${sqList.join(' · ')}`, 'board');
   t.log(`🏁 Race ${st.race}! ${order.map(pid => `${pName(pid)} runs ${CARD(runners[pid]).emoji} ${CARD(runners[pid]).name}`).join(' · ')}`, 'system');
   if (order.length) t.log(`${pName(order[0])} goes first`, 'system');
 }
@@ -1222,9 +1238,15 @@ async function movePiece(id, to) {
     t.log(`${myName()} moved ${label} ${d > 0 ? 'forward' : 'back'} ${Math.abs(d)} to ${spaceName(to)}`, 'move');
   }
   // Board squares apply themselves when a pawn lands on them
-  const sp = boardDef().specials?.[to];
-  if (sp) {
-    if (sp.type === 'ladder' || sp.type === 'chute') {
+  const sp = effectiveSpecials()[to];
+  if (sp && to !== GOAL()) {
+    if (sp.type === 'forward' || sp.type === 'back') {
+      const dest = sp.type === 'forward' ? Math.min(trackLen(), to + sp.n) : Math.max(1, to - sp.n);
+      t.op({ path: ['pieces', id, 'space'], value: dest });
+      t.log(sp.type === 'forward'
+        ? `⏩ ${label} hits a boost square: forward ${sp.n} to ${spaceName(dest)}!`
+        : `⏪ ${label} hits a setback square: back ${sp.n} to ${spaceName(dest)}.`, 'board');
+    } else if (sp.type === 'ladder' || sp.type === 'chute') {
       t.op({ path: ['pieces', id, 'space'], value: sp.to });
       t.log(sp.type === 'ladder'
         ? `🪜 ${label} climbs a ladder from ${to} up to ${sp.to}!`

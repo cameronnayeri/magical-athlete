@@ -54,13 +54,61 @@ const BOARDS = [
 
 const BOARD_W = 1000, BOARD_H = 680;
 const SPECIAL_INFO = {
-  ladder: { emoji: '🪜', label: 'Ladder', color: '#06d6a0' },
-  chute:  { emoji: '🛝', label: 'Chute',  color: '#e63946' },
-  point:  { emoji: '⭐', label: 'Point square', color: '#ffb703' },
-  trip:   { emoji: '🍌', label: 'Trip square', color: '#ffe066' },
+  forward: { emoji: '⏩', label: 'Boost square', color: '#00b4d8' },
+  back:    { emoji: '⏪', label: 'Setback square', color: '#ff7b2e' },
+  ladder:  { emoji: '🪜', label: 'Ladder', color: '#06d6a0' },
+  chute:   { emoji: '🛝', label: 'Chute',  color: '#e63946' },
+  point:   { emoji: '⭐', label: 'Point square', color: '#ffb703' },
+  trip:    { emoji: '🍌', label: 'Trip square', color: '#ffe066' },
 };
 
 function BOARD(id) { return BOARDS.find(b => b.id === id) || BOARDS[0]; }
+
+// Sprinkle random squares onto a board for one race. Returns { space: special }.
+//   boost  → ⏩ forward 2–4 / ⏪ back 1–3
+//   chutes → random ladders (up 3–8) and chutes (down 3–8)
+//   stars  → ⭐ point squares and 🍌 trip squares
+function randomSquares(def, opts = {}) {
+  const L = def.length;
+  const out = {};
+  const taken = new Set(Object.keys(def.specials || {}).map(Number));
+  const free = [];
+  for (let i = 3; i <= L - 2; i++) if (!taken.has(i)) free.push(i);   // keep the first and last couple of spaces clean
+  const per = Math.max(2, Math.round(L / 8));
+  const rnd = n => Math.floor(Math.random() * n);
+  const pick = () => free.length ? free.splice(rnd(free.length), 1)[0] : null;
+  const reserve = i => { const k = free.indexOf(i); if (k >= 0) free.splice(k, 1); };
+
+  if (opts.boost) for (let k = 0; k < per; k++) {
+    const i = pick(); if (i == null) break;
+    out[i] = Math.random() < 0.5 ? { type: 'forward', n: 2 + rnd(3) } : { type: 'back', n: 1 + rnd(3) };
+  }
+  if (opts.chutes) for (let k = 0; k < per; k++) {
+    const i = pick(); if (i == null) break;
+    const up = Math.random() < 0.5;
+    const to = Math.max(1, Math.min(L, up ? i + 3 + rnd(6) : i - 3 - rnd(6)));
+    if (to === i || taken.has(to) || out[to]) continue;
+    out[i] = { type: up ? 'ladder' : 'chute', to };
+    reserve(to);
+  }
+  if (opts.stars) for (let k = 0; k < per; k++) {
+    const i = pick(); if (i == null) break;
+    out[i] = Math.random() < 0.5 ? { type: 'point' } : { type: 'trip' };
+  }
+  return out;
+}
+
+function describeSpecial(i, sp) {
+  switch (sp.type) {
+    case 'forward': return `${i}: Boost — jump forward ${sp.n}`;
+    case 'back':    return `${i}: Setback — go back ${sp.n}`;
+    case 'ladder':  return `${i}: Ladder up to ${sp.to}`;
+    case 'chute':   return `${i}: Chute down to ${sp.to}`;
+    case 'point':   return `${i}: Point square (+1 point)`;
+    case 'trip':    return `${i}: Trip square (miss a turn)`;
+  }
+  return `${i}`;
+}
 
 // Catmull-Rom spline through the waypoints → dense polyline
 function splinePoints(wp, perSeg = 30) {
@@ -114,6 +162,7 @@ function seeded(seedStr) {
 function boardSVG(def, opts = {}) {
   const { points, dense, r } = layoutBoard(def);
   const goal = def.length + 1;
+  const specials = opts.specials || def.specials || {};
   const road = dense.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
   const rnd = seeded(def.id);
   let s = `<svg class="board-svg${opts.cls ? ' ' + opts.cls : ''}" id="${opts.id || 'board-svg'}" viewBox="0 0 ${BOARD_W} ${BOARD_H}" xmlns="http://www.w3.org/2000/svg">
@@ -143,7 +192,7 @@ function boardSVG(def, opts = {}) {
   s += `<polyline class="road-dash" points="${road}" fill="none" stroke-width="2" stroke-dasharray="10 12" stroke-linecap="round" stroke-linejoin="round"/>`;
 
   // chute / ladder connections (drawn under the spaces)
-  Object.entries(def.specials).forEach(([from, sp]) => {
+  Object.entries(specials).forEach(([from, sp]) => {
     if (sp.type !== 'ladder' && sp.type !== 'chute') return;
     const a = points[+from], b = points[sp.to];
     if (!a || !b) return;
@@ -164,7 +213,7 @@ function boardSVG(def, opts = {}) {
   // spaces
   points.forEach((p, i) => {
     const isStart = i === 0, isGoal = i === goal;
-    const sp = def.specials[i];
+    const sp = specials[i];
     if (isStart || isGoal) {
       const w = r * 2.6, h = r * 2.1;
       s += `<g data-space="${i}" class="space space--end"><rect class="cell ${isStart ? 'cell--start' : 'cell--goal'}" x="${p.x - w / 2}" y="${p.y - h / 2}" width="${w}" height="${h}" rx="12"/>`;
@@ -175,9 +224,11 @@ function boardSVG(def, opts = {}) {
     const cls = sp ? `cell cell--${sp.type}` : (i % 2 ? 'cell cell--alt' : 'cell');
     s += `<g data-space="${i}" class="space"><circle class="${cls}" cx="${p.x}" cy="${p.y}" r="${r}"/>`;
     if (sp) {
-      const info = SPECIAL_INFO[sp.type];
-      const title = sp.type === 'ladder' ? `Ladder up to ${sp.to}` : sp.type === 'chute' ? `Chute down to ${sp.to}` : info.label;
-      s += `<title>${i}: ${title}</title><text class="cell-special" x="${p.x}" y="${p.y - r - 4}" text-anchor="middle" font-size="18">${info.emoji}</text>`;
+      const info = SPECIAL_INFO[sp.type] || { emoji: '❔' };
+      s += `<title>${describeSpecial(i, sp)}</title><text class="cell-special" x="${p.x}" y="${p.y - r - 4}" text-anchor="middle" font-size="18">${info.emoji}</text>`;
+      if (sp.type === 'forward' || sp.type === 'back') {
+        s += `<text class="cell-badge" x="${p.x}" y="${p.y + r + 13}" text-anchor="middle" font-size="13">${sp.type === 'forward' ? '+' : '−'}${sp.n}</text>`;
+      }
     }
     s += `<text class="cell-num" x="${p.x}" y="${p.y}" text-anchor="middle" dominant-baseline="central" font-size="${Math.round(r * 0.8)}">${i}</text></g>`;
   });

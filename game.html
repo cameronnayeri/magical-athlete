@@ -60,8 +60,20 @@
               <select id="s-board"></select>
             </div>
             <div class="setting-row">
-              <div><div class="setting-row__label">🌪️ Experimental boards</div><div class="setting-row__desc">Chutes, ladders, point squares and banana peels</div></div>
+              <div><div class="setting-row__label">🌪️ Experimental boards</div><div class="setting-row__desc">Themed tracks with built-in chutes, ladders, stars and peels</div></div>
               <label class="toggle"><input type="checkbox" id="s-experimentalBoards"><span class="toggle__track"></span></label>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-row__label">⏩ Boost &amp; setback squares</div><div class="setting-row__desc">Random "forward 3" / "back 2" squares, re-rolled every race</div></div>
+              <label class="toggle"><input type="checkbox" id="s-randomBoost"><span class="toggle__track"></span></label>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-row__label">🪜 Random chutes &amp; ladders</div><div class="setting-row__desc">A few random ladders and chutes each race</div></div>
+              <label class="toggle"><input type="checkbox" id="s-randomChutes"><span class="toggle__track"></span></label>
+            </div>
+            <div class="setting-row">
+              <div><div class="setting-row__label">⭐ Random stars &amp; peels</div><div class="setting-row__desc">Point squares and trip squares each race</div></div>
+              <label class="toggle"><input type="checkbox" id="s-randomStars"><span class="toggle__track"></span></label>
             </div>
             <div class="setting-row">
               <div><div class="setting-row__label">Where do racers come from?</div><div class="setting-row__desc">Draft from the deck, or everyone invents racers first</div></div>
@@ -323,7 +335,7 @@
       <p><b>The tournament</b> is a series of races. Before a race there may be a <b>draft</b> (or a <b>create-your-own-racer</b> round first), then everyone picks <b>which racer runs</b>, then you <b>race</b>, then points are handed out.</p>
       <p><b>Drafting</b> goes in snake order (first to last, then last to first). Click a card to read it, then hit Draft.</p>
       <p><b>Racing:</b> on your turn hit Roll, then move your pawn by clicking it and clicking a space (or drag it). Read your racer's card and apply the ability yourselves — nothing is enforced, and <b>anyone can move any pawn</b>, so abilities that shove other racers are easy to resolve. Hit End Turn when you're done.</p>
-      <p><b>Board squares</b> do apply themselves: 🪜 ladders climb, 🛝 chutes slide, ⭐ squares score a point, 🍌 squares make you miss your next turn. Undo reverses those too.</p>
+      <p><b>Board squares</b> do apply themselves: ⏩ boost squares jump you forward, ⏪ setback squares knock you back, 🪜 ladders climb, 🛝 chutes slide, ⭐ squares score a point, 🍌 squares make you miss your next turn. Random ones are re-rolled every race. Undo reverses those too.</p>
       <p><b>Flip a random card</b> turns over the top card of the undrafted deck for abilities that ask for one (Inventor, Chameleon…) or just for chaos.</p>
       <p><b>Finishing:</b> drop a pawn on GOAL to record its place. The host hits End Race when enough racers are in, and can tweak the points before continuing.</p>
       <p><b>Drawing:</b> hit Draw to scribble on the board (arrows, notes, insults). Hide drawings if it gets busy. The host can mute anyone who goes rogue.</p>
