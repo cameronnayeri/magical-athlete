@@ -246,9 +246,12 @@ function wireUI() {
     const del = e.target.closest('[data-del]'); if (del) return deleteMadeCard(del.dataset.del);
   });
 
-  // Any card face anywhere opens the card modal (unless a button inside it was clicked)
+  makeSortable($('racer-strip'), '.strip-player', 'x', reorderPlayers);
+  makeSortable($('player-list'), '.player-slot[data-pid]', 'y', reorderSeats);
+
+  // Any card face anywhere opens the card modal (unless a button inside it was clicked, or it was a drag)
   document.addEventListener('click', e => {
-    if (e.target.closest('button')) return;
+    if (sortSuppressClick || e.target.closest('button')) return;
     const face = e.target.closest('[data-card]');
     if (!face || face.closest('#modal-card')) return;
     openCardModal(face.dataset.card);
@@ -311,8 +314,9 @@ function renderLobby() {
   const s = S();
   const sorted = [...players].sort((a, b) => a.seat_order - b.seat_order);
   const host = isHost();
+  if (sortableActive) return;
   let html = sorted.map((p, i) => `
-    <div class="player-slot">
+    <div class="player-slot" data-pid="${p.id}" title="Drag to reorder">
       <span class="online-dot${isOnline(p.id) ? ' online-dot--on' : ''}" title="${isOnline(p.id) ? 'online' : 'away'}"></span>
       <div class="player-slot__ball" style="background:${p.color}"></div>
       <div class="player-slot__name">${i + 1}. ${escapeHtml(p.name)}</div>
@@ -709,20 +713,98 @@ function renderRacers() {
   }).join('');
 }
 
-// Every racer on the track (or everyone's stable between races), card text and all
+// Every racer on the track (or everyone's stable between races), card text and all.
+// Drag a player's group left or right to change the turn order.
 function renderStrip() {
   const el = $('racer-strip');
+  if (sortableActive) return;
   const racing = state.phase === 'race';
   const order = racing && state.raceOrder?.length ? state.raceOrder : gp().map(p => p.id);
   const cur = racing ? state.raceOrder?.[state.turn?.index || 0] : null;
-  el.innerHTML = order.map(pid => {
+  el.innerHTML = order.map((pid, i) => {
     const runner = state.runners?.[pid];
     const cards = runner ? [runner] : (state.stables?.[pid] || []);
-    return cards.map(cid => `<div class="strip-item${pid === cur ? ' strip-item--current' : ''}">
-      <div class="strip-item__who" style="background:${pColor(pid)}">${escapeHtml(pName(pid))}${state.skips?.[pid] ? ' 🍌' : ''}${(state.finishOrder || []).includes(pid) ? ' 🏁' : ''}</div>
-      ${cardHTML(CARD(cid), { mini: true })}</div>`).join('');
+    if (!cards.length) return '';
+    return `<div class="strip-player${pid === cur ? ' strip-item--current' : ''}" data-pid="${pid}" title="Drag to change the turn order">
+      <div class="strip-item__who" style="background:${pColor(pid)}">${i + 1}. ${escapeHtml(pName(pid))}${state.skips?.[pid] ? ' 🍌' : ''}${(state.finishOrder || []).includes(pid) ? ' 🏁' : ''}</div>
+      <div class="strip-cards">${cards.map(cid => cardHTML(CARD(cid), { mini: true })).join('')}</div>
+    </div>`;
   }).join('');
   el.hidden = !el.innerHTML;
+}
+
+// ── Drag-to-reorder (works with mouse and touch) ─────────────
+let sortableActive = false, sortSuppressClick = false;
+function makeSortable(container, itemSel, axis, onDrop) {
+  let d = null;
+  container.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || e.target.closest('button, input, select, textarea, a')) return;
+    const item = e.target.closest(itemSel);
+    if (!item || !container.contains(item)) return;
+    d = { item, startX: e.clientX, startY: e.clientY, moved: false, ghost: null };
+    try { container.setPointerCapture(e.pointerId); } catch {}
+  });
+  container.addEventListener('pointermove', e => {
+    if (!d) return;
+    const dx = e.clientX - d.startX, dy = e.clientY - d.startY;
+    if (!d.moved) {
+      if (Math.hypot(dx, dy) < 8) return;
+      d.moved = true; sortableActive = true;
+      const r = d.item.getBoundingClientRect();
+      const g = d.item.cloneNode(true);
+      g.classList.add('sort-ghost');
+      g.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;pointer-events:none;z-index:1000;`;
+      document.body.appendChild(g);
+      d.ghost = g;
+      d.item.classList.add('sort-placeholder');
+    }
+    e.preventDefault();
+    d.ghost.style.transform = `translate(${dx}px, ${dy}px)`;
+    const others = [...container.querySelectorAll(itemSel)].filter(el => el !== d.item);
+    const over = others.find(s => { const r = s.getBoundingClientRect(); return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom; });
+    if (over) {
+      const r = over.getBoundingClientRect();
+      const mid = axis === 'x' ? r.left + r.width / 2 : r.top + r.height / 2;
+      const pos = axis === 'x' ? e.clientX : e.clientY;
+      if (pos < mid) over.before(d.item); else over.after(d.item);
+    }
+  });
+  const end = () => {
+    if (!d) return;
+    const drop = d; d = null;
+    if (drop.ghost) drop.ghost.remove();
+    drop.item.classList.remove('sort-placeholder');
+    if (!drop.moved) return;
+    sortableActive = false;
+    sortSuppressClick = true; setTimeout(() => { sortSuppressClick = false; }, 300);
+    onDrop([...container.querySelectorAll(itemSel)].map(el => el.dataset.pid));
+  };
+  container.addEventListener('pointerup', end);
+  container.addEventListener('pointercancel', end);
+}
+
+// New turn order from the strip: stays in effect for this race and every race after it
+async function reorderPlayers(ids) {
+  const all = gp().map(p => p.id);
+  const order = [...ids.filter(id => all.includes(id)), ...all.filter(id => !ids.includes(id))];
+  if (order.join() === all.join()) { renderAll(); return; }
+  const t = txn();
+  const ps = order.map(id => gp().find(p => p.id === id)).map((p, i) => ({ ...p, seat: i }));
+  t.op({ path: ['players'], value: ps });
+  if (state.phase === 'race' && state.raceOrder?.length) {
+    const cur = state.raceOrder[state.turn?.index || 0];
+    const ro = order.filter(id => state.raceOrder.includes(id));
+    t.op({ path: ['raceOrder'], value: ro });
+    t.op({ path: ['turn'], value: { index: Math.max(0, ro.indexOf(cur)), number: state.turn?.number || 1 } });
+  }
+  t.log(`🔀 ${myName()} changed the turn order: ${ps.map(p => p.name).join(' → ')}`, 'info');
+  await commit(t);
+}
+async function reorderSeats(ids) {
+  const all = [...players].sort((a, b) => a.seat_order - b.seat_order).map(p => p.id);
+  const order = [...ids.filter(id => all.includes(id)), ...all.filter(id => !ids.includes(id))];
+  if (order.join() === all.join()) { renderAll(); return; }
+  await Promise.all(order.map((id, k) => store.updatePlayer(id, { seat_order: k })));
 }
 
 function renderLog() {

@@ -288,8 +288,15 @@ input:focus, select:focus { box-shadow: 0 0 0 4px rgba(0,180,216,0.3); }
   align-self: flex-start; padding: 2px 12px; border: 2px solid var(--ink); border-bottom: 0; border-radius: 10px 10px 0 0;
   font-family: var(--font-title); font-size: 0.85rem; color: #fff; text-shadow: 1px 1px 0 var(--ink); margin-left: 10px;
 }
+.strip-player { flex: 0 0 auto; display: flex; flex-direction: column; cursor: grab; touch-action: none; user-select: none; }
+.strip-cards { display: flex; gap: 8px; }
+.strip-cards .card-face { width: 230px; }
 .strip-item--current .card-face { outline: 3px solid var(--cyan); outline-offset: 2px; }
-.strip-item .card-face__body { max-height: 96px; overflow-y: auto; }
+.strip-cards .card-face__body { max-height: 96px; overflow-y: auto; }
+.player-slot[data-pid] { cursor: grab; touch-action: none; user-select: none; }
+.sort-placeholder { opacity: 0.3; }
+.sort-ghost { opacity: 0.92; cursor: grabbing; }
+.sort-ghost .card-face, .sort-ghost.player-slot { box-shadow: 0 10px 30px rgba(0,0,0,0.25) !important; }
 .piece { cursor: grab; }
 .piece--dragging { cursor: grabbing; opacity: 0.85; }
 .piece__ball { stroke: var(--ink); stroke-width: 3; }

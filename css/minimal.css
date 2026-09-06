@@ -198,6 +198,7 @@
 [data-look="minimal"] .card-face--pickme { outline: 1.5px solid var(--ink); outline-offset: 2px; }
 [data-look="minimal"] .strip-item__who { border: 1px solid var(--border); border-bottom: 0; color: var(--ink); background: var(--paper) !important; font-weight: 500; font-size: 0.75rem; }
 [data-look="minimal"] .strip-item--current .card-face { outline: 1.5px solid var(--ink); outline-offset: 0; }
+[data-look="minimal"] .sort-ghost .card-face, [data-look="minimal"] .sort-ghost.player-slot { box-shadow: 0 8px 24px rgba(0,0,0,0.18) !important; background: var(--paper); }
 
 /* ── Overlays ────────────────────────────────────────────── */
 [data-look="minimal"] .overlay { background: rgba(0,0,0,0.35); }
