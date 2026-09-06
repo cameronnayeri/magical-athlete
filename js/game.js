@@ -62,11 +62,14 @@ function applyTheme(t) {
   try { localStorage.setItem('ma_theme', t); } catch {}
   $('theme-btn').textContent = t === 'dark' ? '☀️ Light' : '🌙 Dark';
 }
+const LOOKS = ['pulp', 'minimal', 'bold'];
 function applyLook(l) {
+  if (!LOOKS.includes(l)) l = 'pulp';
   document.documentElement.dataset.look = l;
-  try { localStorage.setItem('ma_look2', l); } catch {}
-  $('look-btn').textContent = l === 'minimal' ? 'Bold look' : 'Minimal look';
+  try { localStorage.setItem('ma_look3', l); } catch {}
+  $('look-btn').textContent = `Look: ${l[0].toUpperCase()}${l.slice(1)}`;
 }
+function nextLook() { const i = LOOKS.indexOf(document.documentElement.dataset.look); applyLook(LOOKS[(i + 1) % LOOKS.length]); }
 // "3,1 | 4,2 | 4,2 | 5,3" → the points row for the given race (the last row repeats for extra races)
 function pointsTable(st = state, race = st.race || 1) {
   const rows = String(RS(st).points).split('|').map(r => r.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n))).filter(r => r.length);
@@ -122,7 +125,7 @@ async function init() {
   $('code-chip').textContent = lobbyCode;
   if (LOCAL_MODE) $('local-chip').hidden = false;
   applyTheme(document.documentElement.dataset.theme || 'light');
-  applyLook(document.documentElement.dataset.look || 'minimal');
+  applyLook(document.documentElement.dataset.look || 'pulp');
 
   [lobby, players, strokes, madeCards] = await Promise.all([
     store.getLobby(lobbyCode), store.getPlayers(lobbyCode), store.getStrokes(lobbyCode), store.getCards(lobbyCode),
@@ -223,7 +226,7 @@ function wireUI() {
   $('c-cancel').onclick = resetCardForm;
   $('create-start-btn').onclick = startCreatedDraft;
   $('theme-btn').onclick = () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
-  $('look-btn').onclick = () => applyLook(document.documentElement.dataset.look === 'minimal' ? 'bold' : 'minimal');
+  $('look-btn').onclick = nextLook;
   buildEmojiPicker();
   $('pawn-art').onclick = () => setPawnChoice('art');
   $('pawn-emoji').onclick = () => setPawnChoice('emoji');
