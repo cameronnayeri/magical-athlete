@@ -543,11 +543,12 @@ function renderPieces() {
     const n = list.length;
     list.forEach((p, k) => {
       let ox = 0, oy = 0;
-      if (n > 1) { const ang = (k / n) * Math.PI * 2 - Math.PI / 2; const r = n === 2 ? 12 : 15; ox = Math.cos(ang) * r; oy = Math.sin(ang) * r; }
-      const card = CARD(p.cardId), R = n > 2 ? 13 : 18;
+      // Stacked pawns sit on the tile's corners so they stay on the grid
+      if (n > 1) { const off = [[-8, -8], [8, 8], [8, -8], [-8, 8], [0, 0], [-8, 0], [8, 0], [0, -8]][k % 8]; ox = off[0]; oy = off[1]; }
+      const card = CARD(p.cardId), R = n > 1 ? 12 : 16;
       const face = (card.art && card.pawn !== 'emoji')
         ? `<image class="piece__art" href="${card.art}" x="${-R}" y="${-R}" width="${2 * R}" height="${2 * R}" clip-path="url(#clip${R})" preserveAspectRatio="xMidYMid slice"/><circle class="piece__ball" r="${R}" fill="none"/>`
-        : `<text class="piece__emoji" style="font-size:${R > 14 ? 19 : 14}px">${card.emoji}</text>`;
+        : `<text class="piece__emoji" style="font-size:${R > 12 ? 18 : 14}px">${card.emoji}</text>`;
       s += `<g class="piece${p.id === selectedPiece ? ' piece--selected' : ''}" data-piece="${p.id}" transform="translate(${cx + ox},${cy + oy})">
         <circle class="piece__ball" r="${R}" fill="${pColor(p.pid)}"/>${face}
         ${card.pawns > 1 ? `<text class="piece__tag" y="${R + 9}">${p.n + 1}</text>` : ''}
