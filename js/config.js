@@ -12,4 +12,4 @@
 // ============================================================
 
 const SUPABASE_URL      = 'https://kwinhlpwaisjypvdghnn.supabase.co';
-const SUPABASE_ANON_KEY = '';
+const SUPABASE_ANON_KEY = 'sb_publishable_OZWIJJ6MD2xhlYy5FuBVEw_8DOJlzB5';
