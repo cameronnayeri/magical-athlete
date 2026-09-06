@@ -167,11 +167,13 @@ function boardSVG(def, opts = {}) {
   const specials = opts.specials || def.specials || {};
   const road = dense.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
   const rnd = seeded(def.id);
+  // A preview (lobby) copy must not reuse the live board's ids, or pawns end up drawn into the hidden preview
+  const sfx = opts.preview ? '-preview' : '';
   let s = `<svg class="board-svg${opts.cls ? ' ' + opts.cls : ''}" id="${opts.id || 'board-svg'}" viewBox="0 0 ${BOARD_W} ${BOARD_H}" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <pattern id="checker" width="14" height="14" patternUnits="userSpaceOnUse"><rect width="7" height="7" fill="#1d1b2e"/><rect x="7" y="7" width="7" height="7" fill="#1d1b2e"/></pattern>
-      <clipPath id="clip18"><circle r="18"/></clipPath><clipPath id="clip13"><circle r="13"/></clipPath>
-      <marker id="arrow-chute" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${SPECIAL_INFO.chute.color}"/></marker>
+      <pattern id="checker${sfx}" width="14" height="14" patternUnits="userSpaceOnUse"><rect width="7" height="7" fill="#1d1b2e"/><rect x="7" y="7" width="7" height="7" fill="#1d1b2e"/></pattern>
+      <clipPath id="clip18${sfx}"><circle r="18"/></clipPath><clipPath id="clip13${sfx}"><circle r="13"/></clipPath>
+      <marker id="arrow-chute${sfx}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${SPECIAL_INFO.chute.color}"/></marker>
     </defs>
     <rect class="board-bg" x="0" y="0" width="${BOARD_W}" height="${BOARD_H}" rx="28" fill="${def.theme.bg}"/>`;
 
@@ -208,7 +210,7 @@ function boardSVG(def, opts = {}) {
       s += '</g>';
     } else {
       const mx = (a.x + b.x) / 2 + (b.y - a.y) * 0.25, my = (a.y + b.y) / 2 - (b.x - a.x) * 0.25;
-      s += `<path class="chute" d="M${a.x},${a.y} Q${mx},${my} ${b.x},${b.y}" marker-end="url(#arrow-chute)"/>`;
+      s += `<path class="chute" d="M${a.x},${a.y} Q${mx},${my} ${b.x},${b.y}" marker-end="url(#arrow-chute${sfx})"/>`;
     }
   });
 
@@ -219,7 +221,7 @@ function boardSVG(def, opts = {}) {
     if (isStart || isGoal) {
       const w = r * 2.6, h = r * 2.1;
       s += `<g data-space="${i}" class="space space--end"><rect class="cell ${isStart ? 'cell--start' : 'cell--goal'}" x="${p.x - w / 2}" y="${p.y - h / 2}" width="${w}" height="${h}" rx="12"/>`;
-      if (isGoal) s += `<rect x="${p.x - w / 2}" y="${p.y - h / 2}" width="${w}" height="${h}" rx="12" fill="url(#checker)" opacity="0.18" pointer-events="none"/>`;
+      if (isGoal) s += `<rect x="${p.x - w / 2}" y="${p.y - h / 2}" width="${w}" height="${h}" rx="12" fill="url(#checker${sfx})" opacity="0.18" pointer-events="none"/>`;
       s += `<text class="cell-label" x="${p.x}" y="${p.y + h / 2 - 6}" text-anchor="middle">${isStart ? 'START' : 'GOAL'}</text></g>`;
       return;
     }
@@ -235,6 +237,7 @@ function boardSVG(def, opts = {}) {
     s += `<text class="cell-num" x="${p.x}" y="${p.y}" text-anchor="middle" dominant-baseline="central" font-size="${Math.round(r * 0.8)}">${i}</text></g>`;
   });
 
-  s += '<g id="pieces-layer"></g><g id="draw-layer" class="draw-layer"></g></svg>';
+  if (!opts.preview) s += '<g id="pieces-layer"></g><g id="draw-layer" class="draw-layer"></g>';
+  s += '</svg>';
   return s;
 }

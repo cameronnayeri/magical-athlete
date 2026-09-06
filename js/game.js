@@ -406,7 +406,7 @@ function legendHTML(specials) {
 }
 function renderBoardPreview(def) {
   const box = $('board-preview');
-  if (box.dataset.id !== def.id) { box.innerHTML = boardSVG(def, { id: 'board-preview-svg' }); box.dataset.id = def.id; }
+  if (box.dataset.id !== def.id) { box.innerHTML = boardSVG(def, { id: 'board-preview-svg', preview: true }); box.dataset.id = def.id; }
   $('board-blurb').textContent = `${def.emoji} ${def.name} · ${def.length} spaces. ${def.blurb} ${randomSquareNote(S())}`;
   $('board-legend-lobby').innerHTML = legendHTML(def.specials);
 }
@@ -493,8 +493,10 @@ function buildBoard() {
   svg.addEventListener('pointercancel', onPointerUp);
 }
 
+function piecesLayer() { return $('board').querySelector('#pieces-layer'); }
+function drawLayer() { return $('board').querySelector('#draw-layer'); }
 function renderPieces() {
-  const layer = $('pieces-layer');
+  const layer = piecesLayer();
   if (!layer || drag) return;
   const bySpace = {};
   Object.entries(state.pieces || {}).forEach(([id, p]) => { (bySpace[p.space] ||= []).push({ id, ...p }); });
@@ -531,7 +533,7 @@ function onPointerDown(e) {
     liveStroke = { id: generateId(), player_id: myId, color: drawColor || me.color, width: drawWidth, points: [[Math.round(p.x), Math.round(p.y)]] };
     liveEl = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
     setStrokeAttrs(liveEl, liveStroke);
-    $('draw-layer').appendChild(liveEl);
+    drawLayer().appendChild(liveEl);
     try { $('board-svg').setPointerCapture(e.pointerId); } catch {}
     return;
   }
@@ -598,7 +600,7 @@ function setStrokeAttrs(el, s) {
   el.setAttribute('opacity', '0.92');
 }
 function renderDrawings() {
-  const layer = $('draw-layer'); if (!layer) return;
+  const layer = drawLayer(); if (!layer) return;
   layer.innerHTML = '';
   if (hideDrawings) return;
   strokes.filter(s => !isMuted(s.player_id) && Array.isArray(s.points)).forEach(s => {
