@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Magical Athlete</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script>try { document.documentElement.dataset.theme = localStorage.getItem('ma_theme') || 'light'; } catch (e) {}</script>
+</head>
+<body>
+  <div id="notification"></div>
+
+  <main class="page index-page">
+    <div class="index-title">
+      <div class="emoji-row">🐢🥷🧙🐇💀🐉</div>
+      <h1>Magical Athlete</h1>
+      <p class="subtitle">Draft ridiculous racers. Roll dice. Ruin friendships.</p>
+      <span class="mode-pill" id="mode-pill" hidden></span>
+      <div class="mt-12"><button class="btn btn--sm" id="theme-btn" type="button">🌙 Dark</button></div>
+    </div>
+
+    <div class="index-panels">
+      <div class="panel">
+        <h2>Create a game</h2>
+        <div class="field mt-16">
+          <label class="label" for="create-name">Your name</label>
+          <input type="text" id="create-name" placeholder="Enter your name" maxlength="20" autocomplete="off">
+        </div>
+        <button class="btn btn--primary btn--block" id="create-btn">Create lobby</button>
+      </div>
+
+      <div class="panel">
+        <h2>Join a game</h2>
+        <div class="field mt-16">
+          <label class="label" for="join-name">Your name</label>
+          <input type="text" id="join-name" placeholder="Enter your name" maxlength="20" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="label" for="join-code">Lobby code</label>
+          <input type="text" id="join-code" placeholder="ABCD" maxlength="4" class="code-input" autocomplete="off">
+        </div>
+        <button class="btn btn--cyan btn--block" id="join-btn">Join game</button>
+        <div id="claim-box" hidden>
+          <p class="hint mt-12">That game already started. Pick your seat to rejoin:</p>
+          <div class="claim-list" id="claim-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="text-center hint mt-16">
+      2–8 players &bull; No account needed &bull; Abilities are read from the cards and applied by hand
+    </p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/client.js"></script>
+  <script>
+    const store = getStore();
+
+    if (LOCAL_MODE) {
+      const pill = $('mode-pill');
+      pill.hidden = false;
+      pill.textContent = 'Local test mode — open more tabs in this browser to add players. Add Supabase details in js/config.js to play online.';
+    }
+
+    function applyTheme(t) {
+      document.documentElement.dataset.theme = t;
+      try { localStorage.setItem('ma_theme', t); } catch (e) {}
+      $('theme-btn').textContent = t === 'dark' ? '☀️ Light' : '🌙 Dark';
+    }
+    applyTheme(document.documentElement.dataset.theme || 'light');
+    $('theme-btn').onclick = () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+    const savedName = localStorage.getItem('ma_playerName') || '';
+    $('create-name').value = savedName;
+    $('join-name').value = savedName;
+    $('join-code').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase(); });
+
+    // Invite links look like index.html?code=ABCD
+    const urlCode = new URLSearchParams(location.search).get('code');
+    if (urlCode) { $('join-code').value = urlCode.toUpperCase().slice(0, 4); $('join-name').focus(); }
+
+    function enter(playerId, code, name) {
+      localStorage.setItem('ma_playerName', name);
+      IDENT.setItem('ma_playerId', playerId);
+      IDENT.setItem('ma_lobbyCode', code);
+      window.location.href = 'game.html';
+    }
+
+    function setBusy(btn, busy, label) {
+      btn.disabled = busy;
+      btn.textContent = busy ? 'One sec…' : label;
+    }
+
+    // ── Create ──────────────────────────────────────────────
+    $('create-btn').addEventListener('click', async () => {
+      const name = $('create-name').value.trim();
+      if (!name) return showNotif('Enter your name first', 'error');
+      const btn = $('create-btn');
+      setBusy(btn, true, 'Create lobby');
+      try {
+        const playerId = generateId();
+        let code, attempts = 0;
+        do { code = generateCode(); attempts++; } while (attempts < 10 && await store.getLobby(code));
+
+        await store.createLobby({
+          code, host_player_id: playerId,
+          settings: { ...DEFAULT_SETTINGS },
+          game_state: {}, status: 'waiting',
+        });
+        await store.insertPlayer({
+          id: playerId, lobby_code: code, name,
+          color: PLAYER_COLORS[0].hex, seat_order: 0, is_host: true,
+          last_seen: new Date().toISOString(),
+        });
+        enter(playerId, code, name);
+      } catch (err) {
+        console.error(err);
+        showNotif('Could not create the game. Check js/config.js and setup.sql.', 'error');
+        setBusy(btn, false, 'Create lobby');
+      }
+    });
+
+    // ── Join ────────────────────────────────────────────────
+    $('join-btn').addEventListener('click', async () => {
+      const name = $('join-name').value.trim();
+      const code = $('join-code').value.trim().toUpperCase();
+      if (!name) return showNotif('Enter your name', 'error');
+      if (code.length !== 4) return showNotif('Enter the 4-letter lobby code', 'error');
+      const btn = $('join-btn');
+      setBusy(btn, true, 'Join game');
+      try {
+        const lobby = await store.getLobby(code);
+        if (!lobby) { showNotif('Lobby not found', 'error'); return setBusy(btn, false, 'Join game'); }
+        const existing = await store.getPlayers(code);
+
+        if (lobby.status !== 'waiting') {
+          // Game in progress: let them reclaim a seat (e.g. after switching devices)
+          const box = $('claim-box'), list = $('claim-list');
+          box.hidden = false;
+          list.innerHTML = '';
+          existing.forEach(p => {
+            const b = document.createElement('button');
+            b.className = 'btn btn--sm';
+            b.innerHTML = `<span class="chip__dot" style="background:${p.color}"></span> ${escapeHtml(p.name)}`;
+            b.onclick = () => enter(p.id, code, name);
+            list.appendChild(b);
+          });
+          setBusy(btn, false, 'Join game');
+          return;
+        }
+
+        const settings = { ...DEFAULT_SETTINGS, ...(lobby.settings || {}) };
+        if (existing.length >= settings.maxPlayers) { showNotif('Lobby is full', 'error'); return setBusy(btn, false, 'Join game'); }
+
+        const usedSeats = existing.map(p => p.seat_order);
+        let seat = 0; while (usedSeats.includes(seat)) seat++;
+        const usedColors = existing.map(p => p.color);
+        const color = (PLAYER_COLORS.find(c => !usedColors.includes(c.hex)) || PLAYER_COLORS[seat % PLAYER_COLORS.length]).hex;
+
+        const playerId = generateId();
+        await store.insertPlayer({
+          id: playerId, lobby_code: code, name, color,
+          seat_order: seat, is_host: false, last_seen: new Date().toISOString(),
+        });
+        enter(playerId, code, name);
+      } catch (err) {
+        console.error(err);
+        showNotif('Could not join. Try again.', 'error');
+        setBusy(btn, false, 'Join game');
+      }
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      const id = document.activeElement?.id || '';
+      if (id.startsWith('create')) $('create-btn').click();
+      else if (id.startsWith('join')) $('join-btn').click();
+    });
+  </script>
+</body>
+</html>
