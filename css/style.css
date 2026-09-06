@@ -224,20 +224,31 @@ input:focus, select:focus { box-shadow: 0 0 0 4px rgba(0,180,216,0.3); }
 }
 /* Right-hand columns stay pinned and scroll on their own, so nothing needs scrolling up and down */
 .col { position: sticky; top: 64px; max-height: calc(100vh - 78px); overflow-y: auto; }
-.col--log { padding-bottom: 420px; }   /* room to scroll old entries out from under the floating controls */
+/* Controls bar under the board: sticks to the bottom edge while the board is taller than the window */
 .turn-widget {
-  position: fixed; right: 16px; bottom: 16px; width: 300px; z-index: 60;
-  padding: 14px; max-height: calc(100vh - 90px); overflow-y: auto;
+  position: sticky; bottom: 12px; z-index: 40; margin-top: 16px; padding: 14px 18px;
+  display: grid; grid-template-columns: auto auto minmax(0, 1fr) 220px; gap: 18px; align-items: center;
 }
+.ctl { min-width: 0; }
+.ctl--turn { text-align: center; min-width: 120px; }
+.ctl--dice { text-align: center; }
+.ctl--dice .dice-row { margin: 0 0 6px; min-height: 0; }
+.ctl--dice .die { width: 48px; height: 48px; font-size: 1.6rem; }
+.ctl--move .btn-row { justify-content: flex-start; }
+.ctl--move .selected-label { margin-bottom: 6px; }
+.ctl--end .btn--lg { font-size: 1.2rem; padding: 14px 20px; }
 @media (max-width: 1240px) {
   .game-layout { grid-template-columns: minmax(0, 1fr) 300px; }
   .col--log { grid-column: 2; }
+  .turn-widget { grid-template-columns: auto 1fr; }
+  .ctl--end { grid-column: 1 / -1; }
 }
 @media (max-width: 900px) {
   .game-layout { grid-template-columns: 1fr; }
   .col { position: static; max-height: none; overflow: visible; }
-  .col--log { grid-column: auto; padding-bottom: 0; }
-  .turn-widget { position: static; width: auto; margin: 0 16px 16px; max-height: none; }
+  .col--log { grid-column: auto; }
+  .turn-widget { grid-template-columns: 1fr; position: static; text-align: center; }
+  .ctl--move .btn-row { justify-content: center; }
 }
 
 /* Player cards column */
