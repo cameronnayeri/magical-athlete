@@ -54,7 +54,7 @@ function trackLen() { return boardDef().length; }
 function effectiveSpecials() { return { ...(boardDef().specials || {}), ...(state.squares || {}) }; }
 function randomSquareNote(s) {
   const on = [s.randomBoost && '⏩ boost & setback', s.randomChutes && '🪜 chutes & ladders', s.randomStars && '⭐ stars & peels'].filter(Boolean);
-  return on.length ? `Random each race: ${on.join(', ')}.` : '';
+  return on.length && s.squareCount > 0 ? `Random each race: ${s.squareCount} squares of ${on.join(', ')}.` : '';
 }
 function GOAL() { return trackLen() + 1; }
 function applyTheme(t) {
@@ -228,6 +228,7 @@ function wireUI() {
     if (!el) return;
     el.addEventListener('change', () => { clearTimeout(settingsTimer); settingsTimer = setTimeout(saveSettings, 250); });
   });
+  $('s-squareCount').addEventListener('input', () => { $('squareCount-val').textContent = $('s-squareCount').value; });
   if (CUSTOM_CARDS.length) $('row-custom').hidden = false;
 
   // Lobby player list buttons
@@ -370,6 +371,7 @@ function fillSettingsForm(s) {
     const el = $('s-' + k); if (!el) return;
     if (el.type === 'checkbox') el.checked = !!v; else el.value = v;
   });
+  $('squareCount-val').textContent = $('s-squareCount').value;
 }
 function readSettingsForm() {
   const out = {};
@@ -377,7 +379,7 @@ function readSettingsForm() {
     const el = $('s-' + k); if (!el) { out[k] = def; return; }
     if (el.type === 'checkbox') out[k] = el.checked;
     else if (el.tagName === 'SELECT') out[k] = el.value;
-    else if (el.type === 'number') { const n = parseInt(el.value, 10); out[k] = isNaN(n) ? def : Math.max(+el.min || 0, Math.min(+el.max || 999, n)); }
+    else if (el.type === 'number' || el.type === 'range') { const n = parseInt(el.value, 10); out[k] = isNaN(n) ? def : Math.max(+el.min || 0, Math.min(+el.max || 999, n)); }
     else out[k] = el.value.trim() || def;
   });
   if (!BOARDS.some(b => b.id === out.board)) out.board = 'classic';
@@ -1060,7 +1062,7 @@ async function startGame() {
     settings: {
       races: s.races, draftEvery: s.draftEvery, picksPerDraft: s.picksPerDraft, poolExtra: s.poolExtra, points: s.points,
       retire: s.retire, finishersToEnd: s.finishersToEnd, cardSource: s.cardSource, cardsPerPlayer: s.cardsPerPlayer,
-      randomBoost: s.randomBoost, randomChutes: s.randomChutes, randomStars: s.randomStars,
+      randomBoost: s.randomBoost, randomChutes: s.randomChutes, randomStars: s.randomStars, squareCount: s.squareCount,
     },
   };
   snap.forEach(p => { base.scores[p.id] = 0; base.stables[p.id] = []; base.retired[p.id] = []; });
@@ -1176,7 +1178,7 @@ function startRace(t) {
   t.op({ path: ['undo'], value: null });
   t.op({ path: ['skips'], value: {} });
   const rs = RS(st);
-  const squares = randomSquares(BOARD(st.board), { boost: rs.randomBoost, chutes: rs.randomChutes, stars: rs.randomStars });
+  const squares = randomSquares(BOARD(st.board), { boost: rs.randomBoost, chutes: rs.randomChutes, stars: rs.randomStars, count: rs.squareCount });
   t.op({ path: ['squares'], value: squares });
   t.op({ path: ['results'], value: null });
   t.op({ path: ['phase'], value: 'race' });

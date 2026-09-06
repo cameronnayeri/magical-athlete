@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Magical Athlete — Game</title>
-  <link rel="stylesheet" href="css/style.css?v=20260905c">
-  <link rel="stylesheet" href="css/minimal.css?v=20260905c">
+  <link rel="stylesheet" href="css/style.css?v=20260905d">
+  <link rel="stylesheet" href="css/minimal.css?v=20260905d">
   <script>try {
     var q = new URLSearchParams(location.search);
     if (q.get('theme')) localStorage.setItem('ma_theme', q.get('theme'));
@@ -82,6 +82,10 @@
             <div class="setting-row">
               <div><div class="setting-row__label">⭐ Random stars &amp; peels</div><div class="setting-row__desc">Point squares and trip squares each race</div></div>
               <label class="toggle"><input type="checkbox" id="s-randomStars"><span class="toggle__track"></span></label>
+            </div>
+            <div class="setting-row setting-row--slider">
+              <div><div class="setting-row__label">Random special squares: <span id="squareCount-val">6</span></div><div class="setting-row__desc">How many land on the track each race, split across the kinds turned on above</div></div>
+              <input type="range" id="s-squareCount" min="0" max="16" step="1">
             </div>
             <div class="setting-row">
               <div><div class="setting-row__label">Where do racers come from?</div><div class="setting-row__desc">Draft from the deck, or everyone invents racers first</div></div>
@@ -353,10 +357,10 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="js/config.js?v=20260905c"></script>
-  <script src="js/client.js?v=20260905c"></script>
-  <script src="js/cards.js?v=20260905c"></script>
-  <script src="js/boards.js?v=20260905c"></script>
-  <script src="js/game.js?v=20260905c"></script>
+  <script src="js/config.js?v=20260905d"></script>
+  <script src="js/client.js?v=20260905d"></script>
+  <script src="js/cards.js?v=20260905d"></script>
+  <script src="js/boards.js?v=20260905d"></script>
+  <script src="js/game.js?v=20260905d"></script>
 </body>
 </html>

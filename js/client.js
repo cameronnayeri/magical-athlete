@@ -21,6 +21,7 @@ const DEFAULT_SETTINGS = {
   randomBoost: true,    // random ⏩ forward / ⏪ back squares each race
   randomChutes: false,  // random ladders and chutes each race
   randomStars: false,   // random ⭐ point and 🍌 trip squares each race
+  squareCount: 6,       // how many random squares per race in total (slider)
   points: '3,1 | 4,2 | 4,2 | 5,3', // points for 1st, 2nd… per race, races separated by "|" (last one repeats)
   retire: true,         // a racer sits out after it has raced once
   finishersToEnd: 2,    // race is "over" once this many cross the line

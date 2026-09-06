@@ -68,32 +68,34 @@ function BOARD(id) { return BOARDS.find(b => b.id === id) || BOARDS[0]; }
 //   boost  → ⏩ forward 2–4 / ⏪ back 1–3
 //   chutes → random ladders (up 3–8) and chutes (down 3–8)
 //   stars  → ⭐ point squares and 🍌 trip squares
+//   count  → total number of random squares (spread evenly across the enabled kinds)
 function randomSquares(def, opts = {}) {
   const L = def.length;
   const out = {};
+  const kinds = [opts.boost && 'boost', opts.chutes && 'chutes', opts.stars && 'stars'].filter(Boolean);
+  const count = Math.max(0, Math.min(40, opts.count ?? Math.max(2, Math.round(L / 8)) * kinds.length));
+  if (!kinds.length || !count) return out;
   const taken = new Set(Object.keys(def.specials || {}).map(Number));
   const free = [];
   for (let i = 3; i <= L - 2; i++) if (!taken.has(i)) free.push(i);   // keep the first and last couple of spaces clean
-  const per = Math.max(2, Math.round(L / 8));
   const rnd = n => Math.floor(Math.random() * n);
   const pick = () => free.length ? free.splice(rnd(free.length), 1)[0] : null;
   const reserve = i => { const k = free.indexOf(i); if (k >= 0) free.splice(k, 1); };
 
-  if (opts.boost) for (let k = 0; k < per; k++) {
+  for (let k = 0; k < count; k++) {
+    const kind = kinds[k % kinds.length];
     const i = pick(); if (i == null) break;
-    out[i] = Math.random() < 0.5 ? { type: 'forward', n: 2 + rnd(3) } : { type: 'back', n: 1 + rnd(3) };
-  }
-  if (opts.chutes) for (let k = 0; k < per; k++) {
-    const i = pick(); if (i == null) break;
-    const up = Math.random() < 0.5;
-    const to = Math.max(1, Math.min(L, up ? i + 3 + rnd(6) : i - 3 - rnd(6)));
-    if (to === i || taken.has(to) || out[to]) continue;
-    out[i] = { type: up ? 'ladder' : 'chute', to };
-    reserve(to);
-  }
-  if (opts.stars) for (let k = 0; k < per; k++) {
-    const i = pick(); if (i == null) break;
-    out[i] = Math.random() < 0.5 ? { type: 'point' } : { type: 'trip' };
+    if (kind === 'boost') {
+      out[i] = Math.random() < 0.5 ? { type: 'forward', n: 2 + rnd(3) } : { type: 'back', n: 1 + rnd(3) };
+    } else if (kind === 'chutes') {
+      const up = Math.random() < 0.5;
+      const to = Math.max(1, Math.min(L, up ? i + 3 + rnd(6) : i - 3 - rnd(6)));
+      if (to === i || taken.has(to) || out[to]) { k--; if (!free.length) break; continue; }
+      out[i] = { type: up ? 'ladder' : 'chute', to };
+      reserve(to);
+    } else {
+      out[i] = Math.random() < 0.5 ? { type: 'point' } : { type: 'trip' };
+    }
   }
   return out;
 }

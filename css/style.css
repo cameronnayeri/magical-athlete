@@ -448,6 +448,8 @@ textarea:focus { box-shadow: 0 0 0 4px rgba(0,180,216,0.3); }
 .online-dot { width: 10px; height: 10px; border-radius: 50%; background: #c9c7d6; border: 2px solid var(--ink); flex-shrink: 0; }
 .online-dot--on { background: var(--mint); }
 .setting-row select { width: 170px; padding: 6px 8px; }
+.setting-row input[type="range"] { width: 150px; accent-color: var(--magenta); cursor: pointer; }
+[data-look="minimal"] .setting-row input[type="range"] { accent-color: var(--ink); }
 .setting-row--off { opacity: 0.4; }
 
 /* ── Board drawing ───────────────────────────────────────── */
