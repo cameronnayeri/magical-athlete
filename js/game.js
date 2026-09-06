@@ -53,7 +53,7 @@ function trackLen() { return boardDef().length; }
 // The board's built-in squares plus this race's random ones
 function effectiveSpecials() { return { ...(boardDef().specials || {}), ...(state.squares || {}) }; }
 function randomSquareNote(s) {
-  const on = [s.randomBoost && '⏩ boost & setback', s.randomChutes && '🪜 chutes & ladders', s.randomStars && '⭐ stars & peels'].filter(Boolean);
+  const on = [s.randomBoost && '⚡ boost & setback', s.randomChutes && '🪜 chutes & ladders', s.randomStars && '⭐ stars & peels'].filter(Boolean);
   return on.length && s.squareCount > 0 ? `Random each race: ${s.squareCount} squares of ${on.join(', ')}.` : '';
 }
 function GOAL() { return trackLen() + 1; }
@@ -171,7 +171,7 @@ async function init() {
 
   renderAll();
   setInterval(() => store.updatePlayer(myId, { last_seen: new Date().toISOString() }).catch(() => {}), 20000);
-  setInterval(() => { if (lobby?.status === 'waiting') renderLobby(); else renderRacers(); }, 30000); // refresh online dots
+  setInterval(() => { if (lobby?.status === 'waiting') renderLobby(); else renderPlayers(); }, 30000); // refresh online dots
 }
 
 function onRemoteChange() {
@@ -209,6 +209,12 @@ function wireUI() {
   $('mv-roll').onclick = () => { const v = state.lastRoll?.values?.reduce((a, b) => a + b, 0); if (v) nudge(v); };
   $('mv-start').onclick = () => { if (selectedPiece) movePiece(selectedPiece, 0); };
   $('undo-btn').onclick = undoMove;
+  $('apply-square').onclick = () => {
+    const pc = selectedPiece ? state.pieces?.[selectedPiece] : null; if (!pc) return;
+    const sq = effectiveSpecials()[pc.space]; if (!sq) return;
+    if (sq.type === 'forward') movePiece(selectedPiece, Math.min(trackLen(), pc.space + sq.n));
+    else if (sq.type === 'back') movePiece(selectedPiece, Math.max(1, pc.space - sq.n));
+  };
   $('end-race-btn').onclick = endRace;
   $('continue-btn').onclick = continueGame;
   $('again-btn').onclick = backToLobby;
@@ -236,8 +242,8 @@ function wireUI() {
     const b = e.target.closest('[data-seat]'); if (b) return moveSeat(b.dataset.seat, parseInt(b.dataset.dir, 10));
     const k = e.target.closest('[data-kick]'); if (k) return kickPlayer(k.dataset.kick);
   });
-  // Racer list: mute buttons
-  $('racer-list').addEventListener('click', e => {
+  // Player cards: mute buttons
+  $('player-cards').addEventListener('click', e => {
     const m = e.target.closest('[data-mute]'); if (m) { e.stopPropagation(); toggleMute(m.dataset.mute); }
   });
   // Create grid: edit / delete own cards
@@ -246,7 +252,7 @@ function wireUI() {
     const del = e.target.closest('[data-del]'); if (del) return deleteMadeCard(del.dataset.del);
   });
 
-  makeSortable($('racer-strip'), '.strip-player', 'x', reorderPlayers);
+  makeSortable($('player-cards'), '.pcard', 'y', reorderPlayers);
   makeSortable($('player-list'), '.player-slot[data-pid]', 'y', reorderSeats);
 
   // Any card face anywhere opens the card modal (unless a button inside it was clicked, or it was a drag)
@@ -262,15 +268,48 @@ function wireUI() {
   });
   document.addEventListener('keydown', e => {
     const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
-    if (e.key === 'Escape') { closeCardModal(); $('modal-gallery').hidden = true; $('modal-help').hidden = true; if (drawMode) toggleDraw(); return; }
+    if (e.key === 'Escape') {
+      closeCardModal(); $('modal-gallery').hidden = true; $('modal-help').hidden = true;
+      if (drawMode) toggleDraw();
+      moveBuf = ''; clearTimeout(moveBufTimer);
+      if (selectedPiece) { selectedPiece = null; renderGame(); }
+      return;
+    }
     if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
     if (lobby?.status !== 'playing') return;
+    if (state.phase === 'race' && (/^[0-9]$/.test(e.key) || e.key === '-')) { e.preventDefault(); queueMoveDigit(e.key); return; }
+    if (e.key === 'Enter' && moveBuf) { e.preventDefault(); clearTimeout(moveBufTimer); applyMoveBuf(); return; }
     const k = e.key.toLowerCase();
     if (k === 'r') roll(1);
     else if (k === 'n') nextTurn();
     else if (k === 'u') undoMove();
     else if (k === 'd') toggleDraw();
   });
+}
+
+// ── Type a number to move (digits within ~0.7s combine; "-" goes backward; Enter applies now) ──
+let moveBuf = '', moveBufTimer = null;
+function myPieceId() {
+  if (selectedPiece && state.pieces?.[selectedPiece]) return selectedPiece;
+  return Object.keys(state.pieces || {}).find(k => state.pieces[k].pid === myId) || null;
+}
+function queueMoveDigit(k) {
+  if (k === '-') moveBuf = moveBuf.startsWith('-') ? moveBuf.slice(1) : '-' + moveBuf;
+  else moveBuf = (moveBuf + k).slice(0, 4);
+  clearTimeout(moveBufTimer);
+  const id = myPieceId();
+  const who = id ? `${CARD(state.pieces[id].cardId).emoji} ${CARD(state.pieces[id].cardId).name}` : 'no pawn';
+  $('selected-label').innerHTML = `Typing: move <b>${escapeHtml(moveBuf)}</b> spaces — ${escapeHtml(who)} <span class="hint">(Enter to go now)</span>`;
+  moveBufTimer = setTimeout(applyMoveBuf, 700);
+}
+function applyMoveBuf() {
+  const n = parseInt(moveBuf, 10);
+  moveBuf = '';
+  if (!n) { renderTurnBox(); return; }
+  const id = myPieceId();
+  if (!id) { renderTurnBox(); return showNotif('You have no pawn on the track', 'error'); }
+  selectedPiece = id;
+  movePiece(id, state.pieces[id].space + n);
 }
 
 // ============================================================
@@ -450,9 +489,8 @@ function renderGame() {
   renderDrawings();
   renderDrawBar();
   renderTurnBox();
-  renderRacers();
+  renderPlayers();
   renderLog();
-  renderStrip();
   const racing = state.phase === 'race';
   $('board').classList.toggle('board-dim', !racing);
   $('host-race-controls').hidden = !(isHost() && racing);
@@ -461,7 +499,7 @@ function renderGame() {
   $('board-hint').textContent = drawMode
     ? 'Draw mode: scribble on the board. Hit Draw again (or Esc) to go back to moving pawns.'
     : racing
-      ? (selectedPiece ? 'Now click a space to move it (or drag the pawn there).' : 'Click or drag any pawn to move it. Nothing is enforced — read the cards and play it out.')
+      ? (selectedPiece ? 'Click any space or pawn to move there, or type a number to move that far. Esc deselects.' : 'Click or drag any pawn to move it, or type a number to move your own pawn. Nothing is enforced — read the cards and play it out.')
       : '';
 }
 
@@ -514,6 +552,7 @@ function renderPieces() {
       s += `<g class="piece${p.id === selectedPiece ? ' piece--selected' : ''}" data-piece="${p.id}" transform="translate(${cx + ox},${cy + oy})">
         <circle class="piece__ball" r="${R}" fill="${pColor(p.pid)}"/>${face}
         ${card.pawns > 1 ? `<text class="piece__tag" y="${R + 9}">${p.n + 1}</text>` : ''}
+        ${state.skips?.[p.pid] ? `<text class="piece__badge" x="${R - 6}" y="${-R + 4}" text-anchor="middle" dominant-baseline="central"><title>Tripped — misses next turn</title>🍌</text>` : ''}
       </g>`;
     });
   });
@@ -573,8 +612,15 @@ function onPointerUp(e) {
   }
   if (!drag) return;
   const d = drag; drag = null;
-  // Hit-test while the dragged pawn still ignores the pointer, so we find the cell under it
-  const target = d.moved ? document.elementFromPoint(e.clientX, e.clientY)?.closest?.('[data-space]') : null;
+  // Hit-test with every pawn ignoring the pointer, so dropping onto an occupied space finds the space itself
+  let target = null;
+  if (d.moved) {
+    const layer = piecesLayer();
+    const prev = layer.style.pointerEvents;
+    layer.style.pointerEvents = 'none';
+    target = document.elementFromPoint(e.clientX, e.clientY)?.closest?.('[data-space]') || null;
+    layer.style.pointerEvents = prev;
+  }
   d.el.style.pointerEvents = '';
   d.el.classList.remove('piece--dragging');
   if (d.moved) {
@@ -582,6 +628,9 @@ function onPointerUp(e) {
     selectedPiece = d.id;
     if (target) movePiece(d.id, parseInt(target.dataset.space, 10));
     else renderGame();
+  } else if (selectedPiece && selectedPiece !== d.id && state.pieces?.[d.id]) {
+    // A pawn is already selected: clicking another pawn moves onto its space
+    movePiece(selectedPiece, state.pieces[d.id].space);
   } else {
     selectedPiece = selectedPiece === d.id ? null : d.id;
     renderGame();
@@ -665,6 +714,7 @@ function renderTurnBox() {
   $('turn-sub').textContent = state.phase === 'race' ? `Race ${state.race} of ${RS().races} · Turn ${state.turn?.number || 1}` : phaseLabel();
   $('turn-who').textContent = cur ? `${pName(cur)}${cur === myId ? ' (you)' : ''}` : '—';
   $('turn-who').style.color = cur ? pColor(cur) : '';
+  $('turn-trip').hidden = !(cur && state.skips?.[cur]);
 
   const lr = state.lastRoll;
   const dice = $('dice-row');
@@ -685,54 +735,48 @@ function renderTurnBox() {
   ['mv-back', 'mv-fwd', 'mv-start'].forEach(id => $(id).disabled = !racing || !pc);
   $('mv-roll').disabled = !racing || !pc || !lr;
   $('undo-btn').disabled = !racing || !state.undo;
+  // Boost / setback squares are applied by hand
+  const sq = pc ? effectiveSpecials()[pc.space] : null;
+  const applyBtn = $('apply-square');
+  if (racing && sq && (sq.type === 'forward' || sq.type === 'back')) {
+    applyBtn.hidden = false;
+    applyBtn.textContent = sq.type === 'forward' ? `⚡ Apply +${sq.n}` : `🌬️ Apply −${sq.n}`;
+  } else applyBtn.hidden = true;
 }
 
-function renderRacers() {
-  const list = $('racer-list'); if (!list || lobby.status === 'waiting') return;
-  const order = state.phase === 'race' && state.raceOrder?.length ? state.raceOrder : gp().map(p => p.id);
-  const cur = state.phase === 'race' ? state.raceOrder?.[state.turn?.index || 0] : null;
+// One block per player in the right-hand column: who, where, points, their racer card(s).
+// Drag a block up or down to change the turn order.
+function renderPlayers() {
+  const el = $('player-cards'); if (!el || lobby.status === 'waiting' || sortableActive) return;
+  const racing = state.phase === 'race';
+  const ids = gp().map(p => p.id);
+  const order = racing && state.raceOrder?.length ? [...state.raceOrder, ...ids.filter(id => !state.raceOrder.includes(id))] : ids;
+  const cur = racing ? state.raceOrder?.[state.turn?.index || 0] : null;
   const fo = state.finishOrder || [];
-  list.innerHTML = order.map(pid => {
+  el.innerHTML = order.map((pid, i) => {
     const runner = state.runners?.[pid];
-    const card = runner ? CARD(runner) : null;
+    const cards = runner ? [runner] : (state.stables?.[pid] || []);
     const place = fo.indexOf(pid);
     const pieces = Object.values(state.pieces || {}).filter(p => p.pid === pid);
-    const pos = place >= 0 ? `🏁 ${ordinal(place + 1)}` : pieces.length ? pieces.map(p => p.space === 0 ? 'Start' : p.space).join(' / ') : '';
+    const pos = place >= 0 ? `🏁 ${ordinal(place + 1)}` : pieces.length ? pieces.map(p => p.space === 0 ? 'Start' : 'space ' + p.space).join(' / ') : '';
     const stable = (state.stables?.[pid] || []).filter(c => c !== runner);
     const retired = state.retired?.[pid] || [];
     const chips = [...stable.map(c => `<span class="mini-chip" data-card="${c}">${CARD(c).emoji} ${escapeHtml(CARD(c).name)}</span>`),
                    ...retired.map(c => `<span class="mini-chip mini-chip--retired" data-card="${c}">${CARD(c).emoji} ${escapeHtml(CARD(c).name)}</span>`)].join('');
     const muteBtn = isHost() && pid !== myId ? `<button class="icon-btn${isMuted(pid) ? ' icon-btn--on' : ''}" data-mute="${pid}" title="${isMuted(pid) ? 'Allow drawing' : 'Mute drawing'}">${isMuted(pid) ? '🔇' : '🔊'}</button>` : (isMuted(pid) ? '<span title="muted from drawing">🔇</span>' : '');
-    return `<div class="racer-row${pid === cur ? ' racer-row--current' : ''}${place >= 0 ? ' racer-row--done' : ''}" ${card ? `data-card="${card.id}"` : ''}>
-      <div class="racer-row__ball" style="background:${pColor(pid)}">${card ? card.emoji : ''}</div>
-      <div class="racer-row__body">
-        <div class="racer-row__name"><span class="online-dot${isOnline(pid) ? ' online-dot--on' : ''}" style="display:inline-block;vertical-align:middle;margin-right:4px"></span>${escapeHtml(pName(pid))}${pid === myId ? ' <span class="hint">(you)</span>' : ''}</div>
-        <div class="racer-row__sub">${card ? escapeHtml(card.name) + ' — ' + escapeHtml(card.text) : 'No racer on the track'}</div>
-        ${chips ? `<div class="stable-chips">${chips}</div>` : ''}
+    return `<div class="pcard${pid === cur ? ' pcard--current' : ''}${place >= 0 ? ' pcard--done' : ''}" data-pid="${pid}" title="Drag to change the turn order">
+      <div class="pcard__head">
+        <span class="online-dot${isOnline(pid) ? ' online-dot--on' : ''}" title="${isOnline(pid) ? 'online' : 'away'}"></span>
+        <span class="pcard__ball" style="background:${pColor(pid)}"></span>
+        <span class="pcard__name">${i + 1}. ${escapeHtml(pName(pid))}${pid === myId ? ' <span class="hint">(you)</span>' : ''}</span>
+        <span class="pcard__meta">${pos}${pos ? ' · ' : ''}${state.scores?.[pid] ?? 0} pts</span>
+        ${muteBtn}
       </div>
-      <div class="racer-row__pos">${pos}<div class="hint">${state.scores?.[pid] ?? 0} pts</div>${state.skips?.[pid] ? '<div class="hint" title="Landed on a trip square">🍌 misses a turn</div>' : ''}${muteBtn}</div>
+      ${state.skips?.[pid] ? '<div class="tripped-pill">🍌 Tripped — misses next turn</div>' : ''}
+      ${cards.map(cid => cardHTML(CARD(cid), { mini: true })).join('') || '<div class="hint">No racer on the track</div>'}
+      ${chips ? `<div class="stable-chips">${chips}</div>` : ''}
     </div>`;
   }).join('');
-}
-
-// Every racer on the track (or everyone's stable between races), card text and all.
-// Drag a player's group left or right to change the turn order.
-function renderStrip() {
-  const el = $('racer-strip');
-  if (sortableActive) return;
-  const racing = state.phase === 'race';
-  const order = racing && state.raceOrder?.length ? state.raceOrder : gp().map(p => p.id);
-  const cur = racing ? state.raceOrder?.[state.turn?.index || 0] : null;
-  el.innerHTML = order.map((pid, i) => {
-    const runner = state.runners?.[pid];
-    const cards = runner ? [runner] : (state.stables?.[pid] || []);
-    if (!cards.length) return '';
-    return `<div class="strip-player${pid === cur ? ' strip-item--current' : ''}" data-pid="${pid}" title="Drag to change the turn order">
-      <div class="strip-item__who" style="background:${pColor(pid)}">${i + 1}. ${escapeHtml(pName(pid))}${state.skips?.[pid] ? ' 🍌' : ''}${(state.finishOrder || []).includes(pid) ? ' 🏁' : ''}</div>
-      <div class="strip-cards">${cards.map(cid => cardHTML(CARD(cid), { mini: true })).join('')}</div>
-    </div>`;
-  }).join('');
-  el.hidden = !el.innerHTML;
 }
 
 // ── Drag-to-reorder (works with mouse and touch) ─────────────
@@ -1340,11 +1384,10 @@ async function movePiece(id, to) {
   const sp = effectiveSpecials()[to];
   if (sp && to !== GOAL()) {
     if (sp.type === 'forward' || sp.type === 'back') {
-      const dest = sp.type === 'forward' ? Math.min(trackLen(), to + sp.n) : Math.max(1, to - sp.n);
-      t.op({ path: ['pieces', id, 'space'], value: dest });
+      // Boost / setback squares are applied by hand: an "Apply" button shows while the pawn is selected
       t.log(sp.type === 'forward'
-        ? `⏩ ${label} hits a boost square: forward ${sp.n} to ${spaceName(dest)}!`
-        : `⏪ ${label} hits a setback square: back ${sp.n} to ${spaceName(dest)}.`, 'board');
+        ? `⚡ ${label} landed on a boost square: move it forward ${sp.n} when ready`
+        : `🌬️ ${label} landed on a setback square: move it back ${sp.n} when ready`, 'board');
     } else if (sp.type === 'ladder' || sp.type === 'chute') {
       t.op({ path: ['pieces', id, 'space'], value: sp.to });
       t.log(sp.type === 'ladder'

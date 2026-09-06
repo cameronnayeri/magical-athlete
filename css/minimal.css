@@ -198,6 +198,13 @@
 [data-look="minimal"] .card-face--pickme { outline: 1.5px solid var(--ink); outline-offset: 2px; }
 [data-look="minimal"] .strip-item__who { border: 1px solid var(--border); border-bottom: 0; color: var(--ink); background: var(--paper) !important; font-weight: 500; font-size: 0.75rem; }
 [data-look="minimal"] .strip-item--current .card-face { outline: 1.5px solid var(--ink); outline-offset: 0; }
+[data-look="minimal"] .pcard { border: 1px solid var(--border); padding: 10px; }
+[data-look="minimal"] .pcard--current { outline: 1.5px solid var(--ink); outline-offset: 0; }
+[data-look="minimal"] .pcard__head { border-bottom: 1px solid var(--border); }
+[data-look="minimal"] .pcard__ball { border: 0; width: 10px; height: 10px; }
+[data-look="minimal"] .pcard__name { font-weight: 600; font-size: 0.9rem; }
+[data-look="minimal"] .tripped-pill { background: var(--paper); color: var(--ink); border: 1px solid var(--border-strong); font-weight: 600; }
+[data-look="minimal"] .turn-widget { border: 1px solid var(--border-strong); box-shadow: 0 8px 28px rgba(0,0,0,0.12) !important; }
 [data-look="minimal"] .sort-ghost .card-face, [data-look="minimal"] .sort-ghost.player-slot { box-shadow: 0 8px 24px rgba(0,0,0,0.18) !important; background: var(--paper); }
 
 /* ── Overlays ────────────────────────────────────────────── */

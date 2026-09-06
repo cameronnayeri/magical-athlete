@@ -219,10 +219,41 @@ input:focus, select:focus { box-shadow: 0 0 0 4px rgba(0,180,216,0.3); }
 .score-chip__pts { font-family: var(--font-title); font-size: 1rem; }
 
 .game-layout {
-  display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px;
-  padding: 18px; max-width: 1400px; margin: 0 auto;
+  display: grid; grid-template-columns: minmax(0, 1fr) 300px 300px; gap: 16px;
+  padding: 16px; max-width: 1700px; margin: 0 auto; align-items: start;
 }
-@media (max-width: 980px) { .game-layout { grid-template-columns: 1fr; } }
+/* Right-hand columns stay pinned and scroll on their own, so nothing needs scrolling up and down */
+.col { position: sticky; top: 64px; max-height: calc(100vh - 78px); overflow-y: auto; }
+.col--log { padding-bottom: 420px; }   /* room to scroll old entries out from under the floating controls */
+.turn-widget {
+  position: fixed; right: 16px; bottom: 16px; width: 300px; z-index: 60;
+  padding: 14px; max-height: calc(100vh - 90px); overflow-y: auto;
+}
+@media (max-width: 1240px) {
+  .game-layout { grid-template-columns: minmax(0, 1fr) 300px; }
+  .col--log { grid-column: 2; }
+}
+@media (max-width: 900px) {
+  .game-layout { grid-template-columns: 1fr; }
+  .col { position: static; max-height: none; overflow: visible; }
+  .col--log { grid-column: auto; padding-bottom: 0; }
+  .turn-widget { position: static; width: auto; margin: 0 16px 16px; max-height: none; }
+}
+
+/* Player cards column */
+.player-cards { display: flex; flex-direction: column; gap: 12px; }
+.pcard { border: 2px solid var(--ink); border-radius: var(--radius); background: var(--paper); padding: 8px; cursor: grab; touch-action: none; user-select: none; display: flex; flex-direction: column; gap: 6px; }
+.pcard--current { outline: 3px solid var(--cyan); outline-offset: 1px; }
+.pcard--done { opacity: 0.6; }
+.pcard__head { display: flex; align-items: center; gap: 6px; padding: 2px 2px 6px; border-bottom: 2px dashed var(--cream-2); flex-wrap: wrap; }
+.pcard__ball { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--ink); flex-shrink: 0; }
+.pcard__name { font-family: var(--font-title); font-size: 0.95rem; flex: 1; min-width: 0; }
+.pcard__meta { font-size: 0.75rem; color: var(--ink-soft); white-space: nowrap; }
+.pcard .card-face { cursor: pointer; }
+.pcard .card-face__body { max-height: 110px; overflow-y: auto; }
+.tripped-pill { display: inline-block; align-self: flex-start; padding: 2px 10px; border-radius: 12px; background: var(--sun); color: #1d1b2e; font-size: 0.75rem; font-weight: 800; border: 2px solid var(--ink); }
+#turn-trip { align-self: center; margin: 4px auto 0; }
+.piece__badge { font-size: 13px; pointer-events: none; }
 
 /* ── Lobby view ──────────────────────────────────────────── */
 .lobby-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 24px 18px; max-width: 1100px; margin: 0 auto; }

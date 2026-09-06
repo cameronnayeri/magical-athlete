@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Magical Athlete — Game</title>
-  <link rel="stylesheet" href="css/style.css?v=20260906a">
-  <link rel="stylesheet" href="css/minimal.css?v=20260906a">
+  <link rel="stylesheet" href="css/style.css?v=20260906d">
+  <link rel="stylesheet" href="css/minimal.css?v=20260906d">
   <script>try {
     var q = new URLSearchParams(location.search);
     if (q.get('theme')) localStorage.setItem('ma_theme', q.get('theme'));
@@ -72,7 +72,7 @@
               <label class="toggle"><input type="checkbox" id="s-experimentalBoards"><span class="toggle__track"></span></label>
             </div>
             <div class="setting-row">
-              <div><div class="setting-row__label">⏩ Boost &amp; setback squares</div><div class="setting-row__desc">Random "forward 3" / "back 2" squares, re-rolled every race</div></div>
+              <div><div class="setting-row__label">⚡ Boost &amp; setback squares</div><div class="setting-row__desc">Random "forward 3" / "back 2" squares, re-rolled every race</div></div>
               <label class="toggle"><input type="checkbox" id="s-randomBoost"><span class="toggle__track"></span></label>
             </div>
             <div class="setting-row">
@@ -156,9 +156,8 @@
 
   <!-- ══════════════ GAME ══════════════ -->
   <main id="view-game" hidden>
-    <div class="racer-strip" id="racer-strip"></div>
     <div class="game-layout">
-      <div>
+      <div class="game-main">
         <div class="panel board-wrap">
           <div id="board"></div>
           <div class="board-legend" id="board-legend"></div>
@@ -174,51 +173,52 @@
         </div>
       </div>
 
-      <aside class="side">
-        <div class="panel turn-box">
-          <div class="turn-box__sub" id="turn-sub">—</div>
-          <div class="turn-box__who" id="turn-who">—</div>
-          <div class="dice-row" id="dice-row"></div>
-          <div class="roll-meta" id="roll-meta"></div>
-          <div class="btn-row">
-            <button class="btn btn--sun" id="roll-btn" title="Shortcut: R">🎲 Roll</button>
-            <button class="btn btn--sm" id="roll2-btn">Roll 2 dice</button>
-          </div>
-          <div class="btn-row">
-            <button class="btn btn--sm btn--cyan" id="next-turn-btn" title="Shortcut: N">End turn ➜</button>
-            <button class="btn btn--sm" id="draw-btn" title="Flips a random undrafted card face-up, for abilities like Inventor or Chameleon">🃏 Flip a random card</button>
-          </div>
-          <div class="move-controls">
-            <div class="selected-label" id="selected-label">Click a pawn to select it</div>
-            <div class="btn-row">
-              <button class="btn btn--sm" id="mv-back">−1</button>
-              <button class="btn btn--sm" id="mv-fwd">+1</button>
-              <button class="btn btn--sm btn--mint" id="mv-roll">+ roll</button>
-              <button class="btn btn--sm" id="mv-start">To start</button>
-            </div>
-            <div class="btn-row">
-              <button class="btn btn--sm btn--ghost" id="undo-btn" title="Shortcut: U">↶ Undo last move</button>
-            </div>
-          </div>
-          <div class="btn-row mt-12" id="host-race-controls" hidden>
-            <button class="btn btn--primary" id="end-race-btn">🏁 End race</button>
-          </div>
-        </div>
-
+      <aside class="col col--players">
         <div class="panel">
-          <div class="panel__title"><h3>Racers</h3><span class="hint">click one to read its card</span></div>
-          <div class="racer-list" id="racer-list"></div>
+          <div class="panel__title"><h3>Players</h3><span class="hint">drag to reorder</span></div>
+          <div class="player-cards" id="player-cards"></div>
         </div>
+      </aside>
 
+      <aside class="col col--log">
         <div class="panel">
           <div class="panel__title"><h3>Log</h3></div>
-          <div class="log" id="log"></div>
           <form class="chat-form" id="chat-form" autocomplete="off">
             <input type="text" id="chat-input" placeholder="Say something…" maxlength="140">
             <button class="btn btn--sm" type="submit">Send</button>
           </form>
+          <div class="log mt-8" id="log"></div>
         </div>
       </aside>
+    </div>
+
+    <!-- Floating controls: stays put while the page scrolls -->
+    <div class="panel turn-widget turn-box" id="turn-widget">
+      <div class="turn-box__sub" id="turn-sub">—</div>
+      <div class="turn-box__who" id="turn-who">—</div>
+      <div class="tripped-pill" id="turn-trip" hidden>🍌 Tripped — misses next turn</div>
+      <div class="dice-row" id="dice-row"></div>
+      <div class="roll-meta" id="roll-meta"></div>
+      <div class="btn-row">
+        <button class="btn btn--sun" id="roll-btn" title="Shortcut: R">🎲 Roll</button>
+        <button class="btn btn--sm" id="roll2-btn">Roll 2 dice</button>
+        <button class="btn btn--sm" id="draw-btn" title="Flips a random undrafted card face-up, for abilities like Inventor or Chameleon">🃏 Flip a card</button>
+      </div>
+      <button class="btn btn--primary btn--lg btn--block mt-8" id="next-turn-btn" title="Shortcut: N">End turn ➜</button>
+      <div class="move-controls">
+        <div class="selected-label" id="selected-label">Click a pawn to select it</div>
+        <div class="btn-row">
+          <button class="btn btn--sm" id="mv-back">−1</button>
+          <button class="btn btn--sm" id="mv-fwd">+1</button>
+          <button class="btn btn--sm btn--mint" id="mv-roll">+ roll</button>
+          <button class="btn btn--sm" id="mv-start">To start</button>
+          <button class="btn btn--sm btn--ghost" id="undo-btn" title="Shortcut: U">↶ Undo</button>
+        </div>
+        <div class="btn-row"><button class="btn btn--sm btn--sun" id="apply-square" hidden title="This pawn is on a boost or setback square">⚡ Apply</button></div>
+      </div>
+      <div class="btn-row mt-8" id="host-race-controls" hidden>
+        <button class="btn btn--block" id="end-race-btn">🏁 End race</button>
+      </div>
     </div>
   </main>
 
@@ -347,20 +347,20 @@
       <p><b>The tournament</b> is a series of races. Before a race there may be a <b>draft</b> (or a <b>create-your-own-racer</b> round first), then everyone picks <b>which racer runs</b>, then you <b>race</b>, then points are handed out.</p>
       <p><b>Drafting</b> goes in snake order (first to last, then last to first). Click a card to read it, then hit Draft.</p>
       <p><b>Racing:</b> on your turn hit Roll, then move your pawn by clicking it and clicking a space (or drag it). Read your racer's card and apply the ability yourselves — nothing is enforced, and <b>anyone can move any pawn</b>, so abilities that shove other racers are easy to resolve. Hit End Turn when you're done.</p>
-      <p><b>Board squares</b> do apply themselves: ⏩ boost squares jump you forward, ⏪ setback squares knock you back, 🪜 ladders climb, 🛝 chutes slide, ⭐ squares score a point, 🍌 squares make you miss your next turn. Random ones are re-rolled every race. Undo reverses those too.</p>
+      <p><b>Board squares:</b> 🪜 ladders, 🛝 chutes, ⭐ point squares and 🍌 trip squares apply themselves when you land. ⚡ boost and 🌬️ setback squares are yours to apply: with the pawn selected, an Apply button shows in the controls. Random ones are re-rolled every race. Undo reverses all of it.</p>
       <p><b>Flip a random card</b> turns over the top card of the undrafted deck for abilities that ask for one (Inventor, Chameleon…) or just for chaos.</p>
       <p><b>Finishing:</b> drop a pawn on GOAL to record its place. The host hits End Race when enough racers are in, and can tweak the points before continuing.</p>
       <p><b>Drawing:</b> hit Draw to scribble on the board (arrows, notes, insults). Hide drawings if it gets busy. The host can mute anyone who goes rogue.</p>
-      <p><b>Shortcuts:</b> R roll · N end turn · U undo · D draw mode · Esc closes things.</p>
+      <p><b>Shortcuts:</b> type a number to move your pawn that far (a minus sign moves back, Enter applies it right away) · R roll · N end turn · U undo · D draw mode · Esc deselects and closes things.</p>
       <p><b>Cards and boards:</b> the All Cards button shows every racer. Edit card text in <b>js/cards.js</b> and boards in <b>js/boards.js</b>.</p>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="js/config.js?v=20260906a"></script>
-  <script src="js/client.js?v=20260906a"></script>
-  <script src="js/cards.js?v=20260906a"></script>
-  <script src="js/boards.js?v=20260906a"></script>
-  <script src="js/game.js?v=20260906a"></script>
+  <script src="js/config.js?v=20260906d"></script>
+  <script src="js/client.js?v=20260906d"></script>
+  <script src="js/cards.js?v=20260906d"></script>
+  <script src="js/boards.js?v=20260906d"></script>
+  <script src="js/game.js?v=20260906d"></script>
 </body>
 </html>

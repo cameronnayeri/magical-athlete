@@ -54,8 +54,8 @@ const BOARDS = [
 
 const BOARD_W = 1000, BOARD_H = 680;
 const SPECIAL_INFO = {
-  forward: { emoji: '⏩', label: 'Boost square', color: '#00b4d8' },
-  back:    { emoji: '⏪', label: 'Setback square', color: '#ff7b2e' },
+  forward: { emoji: '⚡', label: 'Boost square', color: '#00b4d8' },
+  back:    { emoji: '🌬️', label: 'Setback square', color: '#ff7b2e' },
   ladder:  { emoji: '🪜', label: 'Ladder', color: '#06d6a0' },
   chute:   { emoji: '🛝', label: 'Chute',  color: '#e63946' },
   point:   { emoji: '⭐', label: 'Point square', color: '#ffb703' },
@@ -65,7 +65,7 @@ const SPECIAL_INFO = {
 function BOARD(id) { return BOARDS.find(b => b.id === id) || BOARDS[0]; }
 
 // Sprinkle random squares onto a board for one race. Returns { space: special }.
-//   boost  → ⏩ forward 2–4 / ⏪ back 1–3
+//   boost  → ⚡ forward 2–4 / 🌬️ back 1–3
 //   chutes → random ladders (up 3–8) and chutes (down 3–8)
 //   stars  → ⭐ point squares and 🍌 trip squares
 //   count  → total number of random squares (spread evenly across the enabled kinds)
