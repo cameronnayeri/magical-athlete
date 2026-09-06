@@ -142,16 +142,30 @@ function layoutBoard(def) {
   const spacing = total / (count - 1);
   const points = [];
   let j = 0;
+  const used = new Set();
+  const G = GRID;
+  const snap = v => Math.round(v / G) * G;
+  const nudges = [[0,0],[G,0],[0,G],[-G,0],[0,-G],[G,G],[-G,G],[G,-G],[-G,-G],[2*G,0],[0,2*G],[-2*G,0],[0,-2*G]];
   for (let k = 0; k < count; k++) {
     const target = Math.min(total, k * spacing);
     while (j < cum.length - 2 && cum[j + 1] < target) j++;
     const seg = cum[j + 1] - cum[j] || 1;
     const t = (target - cum[j]) / seg;
-    points.push({ x: dense[j][0] + (dense[j + 1][0] - dense[j][0]) * t, y: dense[j][1] + (dense[j + 1][1] - dense[j][1]) * t });
+    const raw = { x: dense[j][0] + (dense[j + 1][0] - dense[j][0]) * t, y: dense[j][1] + (dense[j + 1][1] - dense[j][1]) * t };
+    // Snap every space onto the pixel grid, like tiles in a tile map; nudge if the tile is taken
+    let p = null;
+    for (const [dx, dy] of nudges) {
+      const c = { x: Math.max(G * 2, Math.min(BOARD_W - G * 2, snap(raw.x + dx))), y: Math.max(G * 2, Math.min(BOARD_H - G * 2, snap(raw.y + dy))) };
+      const key = c.x + ',' + c.y;
+      if (!used.has(key)) { used.add(key); p = c; break; }
+    }
+    points.push(p || { x: snap(raw.x), y: snap(raw.y) });
   }
-  const r = Math.max(16, Math.min(24, spacing * 0.36));
+  const r = TILE / 2;
   return (_layoutCache[def.id] = { points, dense, spacing, r });
 }
+const GRID = 20;   // pixel grid the whole board sits on
+const TILE = 40;   // a space is a 2×2 tile
 
 // Deterministic "random" so decorations stay put between renders
 function seeded(seedStr) {
@@ -162,10 +176,10 @@ function seeded(seedStr) {
 
 // Build the whole board as an SVG string (no pieces — those go in #pieces-layer)
 function boardSVG(def, opts = {}) {
-  const { points, dense, r } = layoutBoard(def);
+  const { points, r } = layoutBoard(def);
   const goal = def.length + 1;
   const specials = opts.specials || def.specials || {};
-  const road = dense.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+  const road = points.map(p => `${p.x},${p.y}`).join(' ');
   const rnd = seeded(def.id);
   // A preview (lobby) copy must not reuse the live board's ids, or pawns end up drawn into the hidden preview
   const sfx = opts.preview ? '-preview' : '';
@@ -173,9 +187,11 @@ function boardSVG(def, opts = {}) {
     <defs>
       <pattern id="checker${sfx}" width="14" height="14" patternUnits="userSpaceOnUse"><rect width="7" height="7" fill="#1d1b2e"/><rect x="7" y="7" width="7" height="7" fill="#1d1b2e"/></pattern>
       <clipPath id="clip18${sfx}"><circle r="18"/></clipPath><clipPath id="clip13${sfx}"><circle r="13"/></clipPath>
-      <marker id="arrow-chute${sfx}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${SPECIAL_INFO.chute.color}"/></marker>
+      <marker id="arrow-chute${sfx}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f4f4f4"/></marker>
+      <pattern id="grid${sfx}" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#2c2c2c" stroke-width="1"/></pattern>
     </defs>
-    <rect class="board-bg" x="0" y="0" width="${BOARD_W}" height="${BOARD_H}" rx="28" fill="${def.theme.bg}"/>`;
+    <rect class="board-bg" x="0" y="0" width="${BOARD_W}" height="${BOARD_H}"/>
+    <rect class="board-grid" x="0" y="0" width="${BOARD_W}" height="${BOARD_H}" fill="url(#grid${sfx})"/>`;
 
   // decorations, kept away from the path
   const decor = def.theme.decor || [];
@@ -190,10 +206,10 @@ function boardSVG(def, opts = {}) {
     placed++;
   }
 
-  // the road
-  s += `<polyline class="road-edge" points="${road}" fill="none" stroke-width="${r * 2 + 16}" stroke-linecap="round" stroke-linejoin="round"/>`;
-  s += `<polyline class="road" points="${road}" fill="none" stroke-width="${r * 2 + 10}" stroke-linecap="round" stroke-linejoin="round"/>`;
-  s += `<polyline class="road-dash" points="${road}" fill="none" stroke-width="2" stroke-dasharray="10 12" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // the road: a thick line through the tiles, square joins to keep the pixel feel
+  s += `<polyline class="road-edge" points="${road}" fill="none" stroke-width="${TILE + 12}" stroke-linecap="square" stroke-linejoin="round"/>`;
+  s += `<polyline class="road" points="${road}" fill="none" stroke-width="${TILE + 6}" stroke-linecap="square" stroke-linejoin="round"/>`;
+  s += `<polyline class="road-dash" points="${road}" fill="none" stroke-width="2" stroke-dasharray="4 8" stroke-linecap="butt" stroke-linejoin="round"/>`;
 
   // chute / ladder connections (drawn under the spaces)
   Object.entries(specials).forEach(([from, sp]) => {
@@ -218,23 +234,23 @@ function boardSVG(def, opts = {}) {
   points.forEach((p, i) => {
     const isStart = i === 0, isGoal = i === goal;
     const sp = specials[i];
+    const h = TILE;
     if (isStart || isGoal) {
-      const w = r * 2.6, h = r * 2.1;
-      s += `<g data-space="${i}" class="space space--end"><rect class="cell ${isStart ? 'cell--start' : 'cell--goal'}" x="${p.x - w / 2}" y="${p.y - h / 2}" width="${w}" height="${h}" rx="12"/>`;
-      if (isGoal) s += `<rect x="${p.x - w / 2}" y="${p.y - h / 2}" width="${w}" height="${h}" rx="12" fill="url(#checker${sfx})" opacity="0.18" pointer-events="none"/>`;
-      s += `<text class="cell-label" x="${p.x}" y="${p.y + h / 2 - 6}" text-anchor="middle">${isStart ? 'START' : 'GOAL'}</text></g>`;
+      const w = TILE + GRID;   // 3×2 tiles
+      s += `<g data-space="${i}" class="space space--end"><rect class="cell ${isStart ? 'cell--start' : 'cell--goal'}" x="${p.x - w / 2}" y="${p.y - h / 2}" width="${w}" height="${h}"/>`;
+      s += `<text class="cell-label" x="${p.x}" y="${p.y + 1}" text-anchor="middle" dominant-baseline="central">${isStart ? 'START' : 'GOAL'}</text></g>`;
       return;
     }
     const cls = sp ? `cell cell--${sp.type}` : (i % 2 ? 'cell cell--alt' : 'cell');
-    s += `<g data-space="${i}" class="space"><circle class="${cls}" cx="${p.x}" cy="${p.y}" r="${r}"/>`;
+    s += `<g data-space="${i}" class="space"><rect class="${cls}" x="${p.x - r}" y="${p.y - r}" width="${TILE}" height="${TILE}"/>`;
     if (sp) {
       const info = SPECIAL_INFO[sp.type] || { emoji: '❔' };
-      s += `<title>${describeSpecial(i, sp)}</title><text class="cell-special" x="${p.x}" y="${p.y - r - 4}" text-anchor="middle" font-size="18">${info.emoji}</text>`;
+      s += `<title>${describeSpecial(i, sp)}</title><text class="cell-special" x="${p.x + r - 2}" y="${p.y - r + 2}" text-anchor="middle" dominant-baseline="central" font-size="14">${info.emoji}</text>`;
       if (sp.type === 'forward' || sp.type === 'back') {
-        s += `<text class="cell-badge" x="${p.x}" y="${p.y + r + 13}" text-anchor="middle" font-size="13">${sp.type === 'forward' ? '+' : '−'}${sp.n}</text>`;
+        s += `<text class="cell-badge" x="${p.x}" y="${p.y + r + 11}" text-anchor="middle" font-size="12">${sp.type === 'forward' ? '+' : '-'}${sp.n}</text>`;
       }
     }
-    s += `<text class="cell-num" x="${p.x}" y="${p.y}" text-anchor="middle" dominant-baseline="central" font-size="${Math.round(r * 0.8)}">${i}</text></g>`;
+    s += `<text class="cell-num" x="${p.x}" y="${p.y + 1}" text-anchor="middle" dominant-baseline="central" font-size="16">${i}</text></g>`;
   });
 
   if (!opts.preview) s += '<g id="pieces-layer"></g><g id="draw-layer" class="draw-layer"></g>';

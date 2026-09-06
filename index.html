@@ -4,65 +4,50 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Magical Athlete</title>
-  <link rel="stylesheet" href="css/style.css?v=20260906g">
-  <link rel="stylesheet" href="css/minimal.css?v=20260906g">
-  <link rel="stylesheet" href="css/pulp.css?v=20260906g">
+  <link rel="stylesheet" href="css/style.css?v=20260906h">
   <script>try {
     var q = new URLSearchParams(location.search);
     if (q.get('theme')) localStorage.setItem('ma_theme', q.get('theme'));
-    if (q.get('look')) localStorage.setItem('ma_look3', q.get('look'));
     document.documentElement.dataset.theme = localStorage.getItem('ma_theme') || 'light';
-    document.documentElement.dataset.look = localStorage.getItem('ma_look3') || 'pulp';
   } catch (e) {}</script>
 </head>
 <body>
   <div id="notification"></div>
 
-  <main class="page index-page">
+  <main class="index-page">
     <div class="index-title">
-      <div class="emoji-row">🐢🥷🧙🐇💀🐉</div>
-      <h1>Magical Athlete</h1>
+      <div class="wordmark"><b>magical</b><span>athlete</span></div>
       <p class="subtitle">Draft ridiculous racers. Roll dice. Ruin friendships.</p>
       <span class="mode-pill" id="mode-pill" hidden></span>
-      <div class="mt-12 btn-row"><button class="btn btn--sm" id="theme-btn" type="button">🌙 Dark</button><button class="btn btn--sm" id="look-btn" type="button">Minimal</button></div>
     </div>
 
     <div class="index-panels">
-      <div class="panel">
-        <h2>Create a game</h2>
-        <div class="field mt-16">
-          <label class="label" for="create-name">Your name</label>
-          <input type="text" id="create-name" placeholder="Enter your name" maxlength="20" autocomplete="off">
-        </div>
-        <button class="btn btn--primary btn--block" id="create-btn">Create lobby</button>
+      <div>
+        <h2 class="sec">Create a game</h2>
+        <div class="field"><label class="lbl" for="create-name">Your name</label><input type="text" id="create-name" placeholder="Enter your name" maxlength="20" autocomplete="off"></div>
+        <button class="pbtn pbtn--go" id="create-btn"><i>▶</i>Create lobby</button>
       </div>
-
-      <div class="panel">
-        <h2>Join a game</h2>
-        <div class="field mt-16">
-          <label class="label" for="join-name">Your name</label>
-          <input type="text" id="join-name" placeholder="Enter your name" maxlength="20" autocomplete="off">
-        </div>
-        <div class="field">
-          <label class="label" for="join-code">Lobby code</label>
-          <input type="text" id="join-code" placeholder="ABCD" maxlength="4" class="code-input" autocomplete="off">
-        </div>
-        <button class="btn btn--cyan btn--block" id="join-btn">Join game</button>
+      <div>
+        <h2 class="sec">Join a game</h2>
+        <div class="field"><label class="lbl" for="join-name">Your name</label><input type="text" id="join-name" placeholder="Enter your name" maxlength="20" autocomplete="off"></div>
+        <div class="field"><label class="lbl" for="join-code">Lobby code</label><input type="text" id="join-code" placeholder="ABCD" maxlength="4" class="code-input" autocomplete="off"></div>
+        <button class="pbtn" id="join-btn"><i>➜</i>Join game</button>
         <div id="claim-box" hidden>
-          <p class="hint mt-12">That game already started. Pick your seat to rejoin:</p>
+          <p class="note mt-8">That game already started. Pick your seat to rejoin:</p>
           <div class="claim-list" id="claim-list"></div>
         </div>
       </div>
     </div>
 
-    <p class="text-center hint mt-16">
-      2–8 players &bull; No account needed &bull; Abilities are read from the cards and applied by hand
-    </p>
+    <h2 class="sec mt-16">Theme</h2>
+    <select id="theme-select" style="width:180px"><option value="light">Sunny Day</option><option value="dark">Midnight</option></select>
+
+    <p class="rail-foot mt-16">2–8 players · No account needed · Abilities are read from the cards and applied by hand.<br>Magical Athlete is a board game by Takahiro. This is a fan-made table for playing it online.</p>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="js/config.js?v=20260906g"></script>
-  <script src="js/client.js?v=20260906g"></script>
+  <script src="js/config.js?v=20260906h"></script>
+  <script src="js/client.js?v=20260906h"></script>
   <script>
     const store = getStore();
 
@@ -75,19 +60,10 @@
     function applyTheme(t) {
       document.documentElement.dataset.theme = t;
       try { localStorage.setItem('ma_theme', t); } catch (e) {}
-      $('theme-btn').textContent = t === 'dark' ? '☀️ Light' : '🌙 Dark';
+      $('theme-select').value = t;
     }
     applyTheme(document.documentElement.dataset.theme || 'light');
-    $('theme-btn').onclick = () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
-    const LOOKS = ['pulp', 'minimal', 'bold'];
-    function applyLook(l) {
-      if (!LOOKS.includes(l)) l = 'pulp';
-      document.documentElement.dataset.look = l;
-      try { localStorage.setItem('ma_look3', l); } catch (e) {}
-      $('look-btn').textContent = 'Look: ' + l[0].toUpperCase() + l.slice(1);
-    }
-    applyLook(document.documentElement.dataset.look || 'pulp');
-    $('look-btn').onclick = () => { const i = LOOKS.indexOf(document.documentElement.dataset.look); applyLook(LOOKS[(i + 1) % LOOKS.length]); };
+    $('theme-select').onchange = () => applyTheme($('theme-select').value);
 
     const savedName = localStorage.getItem('ma_playerName') || '';
     $('create-name').value = savedName;
@@ -105,37 +81,26 @@
       window.location.href = 'game.html';
     }
 
-    function setBusy(btn, busy, label) {
-      btn.disabled = busy;
-      btn.textContent = busy ? 'One sec…' : label;
-    }
+    function setBusy(btn, busy) { btn.disabled = busy; }
 
     // ── Create ──────────────────────────────────────────────
     $('create-btn').addEventListener('click', async () => {
       const name = $('create-name').value.trim();
       if (!name) return showNotif('Enter your name first', 'error');
       const btn = $('create-btn');
-      setBusy(btn, true, 'Create lobby');
+      setBusy(btn, true);
       try {
         const playerId = generateId();
         let code, attempts = 0;
         do { code = generateCode(); attempts++; } while (attempts < 10 && await store.getLobby(code));
 
-        await store.createLobby({
-          code, host_player_id: playerId,
-          settings: { ...DEFAULT_SETTINGS },
-          game_state: {}, status: 'waiting',
-        });
-        await store.insertPlayer({
-          id: playerId, lobby_code: code, name,
-          color: PLAYER_COLORS[0].hex, seat_order: 0, is_host: true,
-          last_seen: new Date().toISOString(),
-        });
+        await store.createLobby({ code, host_player_id: playerId, settings: { ...DEFAULT_SETTINGS }, game_state: {}, status: 'waiting' });
+        await store.insertPlayer({ id: playerId, lobby_code: code, name, color: PLAYER_COLORS[0].hex, seat_order: 0, is_host: true, last_seen: new Date().toISOString() });
         enter(playerId, code, name);
       } catch (err) {
         console.error(err);
         showNotif('Could not create the game. Check js/config.js and setup.sql.', 'error');
-        setBusy(btn, false, 'Create lobby');
+        setBusy(btn, false);
       }
     });
 
@@ -146,10 +111,10 @@
       if (!name) return showNotif('Enter your name', 'error');
       if (code.length !== 4) return showNotif('Enter the 4-letter lobby code', 'error');
       const btn = $('join-btn');
-      setBusy(btn, true, 'Join game');
+      setBusy(btn, true);
       try {
         const lobby = await store.getLobby(code);
-        if (!lobby) { showNotif('Lobby not found', 'error'); return setBusy(btn, false, 'Join game'); }
+        if (!lobby) { showNotif('Lobby not found', 'error'); return setBusy(btn, false); }
         const existing = await store.getPlayers(code);
 
         if (lobby.status !== 'waiting') {
@@ -159,17 +124,17 @@
           list.innerHTML = '';
           existing.forEach(p => {
             const b = document.createElement('button');
-            b.className = 'btn btn--sm';
-            b.innerHTML = `<span class="chip__dot" style="background:${p.color}"></span> ${escapeHtml(p.name)}`;
+            b.className = 'pbtn';
+            b.innerHTML = `<i style="background:${p.color}"></i>${escapeHtml(p.name)}`;
             b.onclick = () => enter(p.id, code, name);
             list.appendChild(b);
           });
-          setBusy(btn, false, 'Join game');
+          setBusy(btn, false);
           return;
         }
 
         const settings = { ...DEFAULT_SETTINGS, ...(lobby.settings || {}) };
-        if (existing.length >= settings.maxPlayers) { showNotif('Lobby is full', 'error'); return setBusy(btn, false, 'Join game'); }
+        if (existing.length >= settings.maxPlayers) { showNotif('Lobby is full', 'error'); return setBusy(btn, false); }
 
         const usedSeats = existing.map(p => p.seat_order);
         let seat = 0; while (usedSeats.includes(seat)) seat++;
@@ -177,15 +142,12 @@
         const color = (PLAYER_COLORS.find(c => !usedColors.includes(c.hex)) || PLAYER_COLORS[seat % PLAYER_COLORS.length]).hex;
 
         const playerId = generateId();
-        await store.insertPlayer({
-          id: playerId, lobby_code: code, name, color,
-          seat_order: seat, is_host: false, last_seen: new Date().toISOString(),
-        });
+        await store.insertPlayer({ id: playerId, lobby_code: code, name, color, seat_order: seat, is_host: false, last_seen: new Date().toISOString() });
         enter(playerId, code, name);
       } catch (err) {
         console.error(err);
         showNotif('Could not join. Try again.', 'error');
-        setBusy(btn, false, 'Join game');
+        setBusy(btn, false);
       }
     });
 

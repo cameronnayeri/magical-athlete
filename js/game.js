@@ -60,16 +60,8 @@ function GOAL() { return trackLen() + 1; }
 function applyTheme(t) {
   document.documentElement.dataset.theme = t;
   try { localStorage.setItem('ma_theme', t); } catch {}
-  $('theme-btn').textContent = t === 'dark' ? '☀️ Light' : '🌙 Dark';
+  ['theme-select', 'theme-select-game'].forEach(id => { const el = $(id); if (el) el.value = t; });
 }
-const LOOKS = ['pulp', 'minimal', 'bold'];
-function applyLook(l) {
-  if (!LOOKS.includes(l)) l = 'pulp';
-  document.documentElement.dataset.look = l;
-  try { localStorage.setItem('ma_look3', l); } catch {}
-  $('look-btn').textContent = `Look: ${l[0].toUpperCase()}${l.slice(1)}`;
-}
-function nextLook() { const i = LOOKS.indexOf(document.documentElement.dataset.look); applyLook(LOOKS[(i + 1) % LOOKS.length]); }
 // "3,1 | 4,2 | 4,2 | 5,3" → the points row for the given race (the last row repeats for extra races)
 function pointsTable(st = state, race = st.race || 1) {
   const rows = String(RS(st).points).split('|').map(r => r.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n))).filter(r => r.length);
@@ -125,7 +117,6 @@ async function init() {
   $('code-chip').textContent = lobbyCode;
   if (LOCAL_MODE) $('local-chip').hidden = false;
   applyTheme(document.documentElement.dataset.theme || 'light');
-  applyLook(document.documentElement.dataset.look || 'pulp');
 
   [lobby, players, strokes, madeCards] = await Promise.all([
     store.getLobby(lobbyCode), store.getPlayers(lobbyCode), store.getStrokes(lobbyCode), store.getCards(lobbyCode),
@@ -225,8 +216,9 @@ function wireUI() {
   $('c-save').onclick = saveMadeCard;
   $('c-cancel').onclick = resetCardForm;
   $('create-start-btn').onclick = startCreatedDraft;
-  $('theme-btn').onclick = () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
-  $('look-btn').onclick = nextLook;
+  ['theme-select', 'theme-select-game'].forEach(id => { $(id).onchange = () => applyTheme($(id).value); });
+  ['help-link', 'help-link-game'].forEach(id => { $(id).onclick = () => $('modal-help').hidden = false; });
+  $('gallery-link').onclick = () => $('gallery-btn').click();
   buildEmojiPicker();
   $('pawn-art').onclick = () => setPawnChoice('art');
   $('pawn-emoji').onclick = () => setPawnChoice('emoji');
@@ -245,9 +237,15 @@ function wireUI() {
     const b = e.target.closest('[data-seat]'); if (b) return moveSeat(b.dataset.seat, parseInt(b.dataset.dir, 10));
     const k = e.target.closest('[data-kick]'); if (k) return kickPlayer(k.dataset.kick);
   });
-  // Player cards: mute buttons
+  // Player rows: mute buttons, and clicking a row selects that player's pawn
   $('player-cards').addEventListener('click', e => {
-    const m = e.target.closest('[data-mute]'); if (m) { e.stopPropagation(); toggleMute(m.dataset.mute); }
+    const m = e.target.closest('[data-mute]'); if (m) { e.stopPropagation(); return toggleMute(m.dataset.mute); }
+    if (sortSuppressClick || e.target.closest('button, [data-card]')) return;
+    const row = e.target.closest('.lrow[data-pid]'); if (!row) return;
+    const piece = Object.keys(state.pieces || {}).find(k => state.pieces[k].pid === row.dataset.pid);
+    selectedPiece = piece && selectedPiece !== piece ? piece : null;
+    focusPid = row.dataset.pid;
+    renderGame();
   });
   // Create grid: edit / delete own cards
   $('create-cards').addEventListener('click', e => {
@@ -255,8 +253,8 @@ function wireUI() {
     const del = e.target.closest('[data-del]'); if (del) return deleteMadeCard(del.dataset.del);
   });
 
-  makeSortable($('player-cards'), '.pcard', 'y', reorderPlayers);
-  makeSortable($('player-list'), '.player-slot[data-pid]', 'y', reorderSeats);
+  makeSortable($('player-cards'), '.lrow[data-pid]', 'y', reorderPlayers);
+  makeSortable($('player-list'), '.lrow[data-pid]', 'y', reorderSeats);
 
   // Any card face anywhere opens the card modal (unless a button inside it was clicked, or it was a drag)
   document.addEventListener('click', e => {
@@ -332,12 +330,15 @@ function renderTopbar() {
   $('phase-chip').textContent = phaseLabel();
   const chips = $('score-chips');
   if (lobby.status === 'waiting' || !gp().length) { chips.innerHTML = ''; return; }
-  chips.innerHTML = gp().map(p => `
-    <span class="score-chip" title="${escapeHtml(p.name)}">
-      <span class="score-chip__ball" style="background:${p.color}"></span>
-      <span>${escapeHtml(p.name.split(' ')[0])}</span>
-      <span class="score-chip__pts">${state.scores?.[p.id] ?? 0}</span>
-    </span>`).join('');
+  chips.innerHTML = gp().map(p => `<span class="score-chip" title="${escapeHtml(p.name)}"><span class="dot" style="background:${p.color}"></span>${escapeHtml(p.name.split(' ')[0])} <b>${state.scores?.[p.id] ?? 0}</b></span>`).join('');
+}
+
+// A Pulp "layer" row: [icon tile][black label bar]
+function lrowHTML({ pid, tile, tileStyle = '', body, cls = '', title = '' }) {
+  return `<div class="lrow ${cls}" ${pid ? `data-pid="${pid}"` : ''} ${title ? `title="${escapeHtml(title)}"` : ''}>
+    <div class="lrow__tile" style="${tileStyle}">${tile}</div>
+    <div class="lrow__bar">${body}</div>
+  </div>`;
 }
 
 // ── Lobby ────────────────────────────────────────────────────
@@ -357,20 +358,15 @@ function renderLobby() {
   const sorted = [...players].sort((a, b) => a.seat_order - b.seat_order);
   const host = isHost();
   if (sortableActive) return;
-  let html = sorted.map((p, i) => `
-    <div class="player-slot" data-pid="${p.id}" title="Drag to reorder">
-      <span class="online-dot${isOnline(p.id) ? ' online-dot--on' : ''}" title="${isOnline(p.id) ? 'online' : 'away'}"></span>
-      <div class="player-slot__ball" style="background:${p.color}"></div>
-      <div class="player-slot__name">${i + 1}. ${escapeHtml(p.name)}</div>
-      ${p.is_host ? '<span class="tag tag--host">Host</span>' : ''}
-      ${p.id === myId ? '<span class="tag tag--you">You</span>' : ''}
-      <div class="slot-btns">
-        <button class="icon-btn" data-seat="${p.id}" data-dir="-1" title="Move up" ${i === 0 ? 'disabled' : ''}>▲</button>
-        <button class="icon-btn" data-seat="${p.id}" data-dir="1" title="Move down" ${i === sorted.length - 1 ? 'disabled' : ''}>▼</button>
-        ${host && p.id !== myId ? `<button class="icon-btn icon-btn--danger" data-kick="${p.id}" title="Remove player">✕</button>` : ''}
-      </div>
-    </div>`).join('');
-  for (let i = players.length; i < s.maxPlayers; i++) html += `<div class="player-slot player-slot--empty"><div class="player-slot__name">Waiting for a player…</div></div>`;
+  let html = sorted.map((p, i) => lrowHTML({
+    pid: p.id, title: 'Drag to reorder',
+    tile: `<span class="dot${isOnline(p.id) ? '' : ' dot--off'}" style="background:${p.color}" title="${isOnline(p.id) ? 'online' : 'away'}"></span>`,
+    body: `<span class="grow">${i + 1}. ${escapeHtml(p.name)}${p.is_host ? ' <span class="dim">host</span>' : ''}${p.id === myId ? ' <span class="hi">you</span>' : ''}</span>
+      <button class="ibtn" data-seat="${p.id}" data-dir="-1" title="Move up" ${i === 0 ? 'disabled' : ''}>▲</button>
+      <button class="ibtn" data-seat="${p.id}" data-dir="1" title="Move down" ${i === sorted.length - 1 ? 'disabled' : ''}>▼</button>
+      ${host && p.id !== myId ? `<button class="ibtn" data-kick="${p.id}" title="Remove player">✕</button>` : ''}`,
+  })).join('');
+  for (let i = players.length; i < s.maxPlayers; i++) html += lrowHTML({ cls: 'lrow--empty', tile: '', body: '<span class="grow">Waiting for a player…</span>' });
   $('player-list').innerHTML = html;
   $('player-count').textContent = `${players.length} / ${s.maxPlayers}`;
   document.querySelectorAll('.swatch').forEach(sw => sw.classList.toggle('active', sw.dataset.color === me?.color));
@@ -444,7 +440,7 @@ function legendHTML(specials) {
   const notes = { forward: 'jump ahead', back: 'fall back', ladder: 'climb up', chute: 'slide down', point: '+1 point', trip: 'miss a turn' };
   const order = ['forward', 'back', 'ladder', 'chute', 'point', 'trip'];
   const types = [...new Set(Object.values(specials || {}).map(x => x.type))].sort((a, b) => order.indexOf(a) - order.indexOf(b));
-  return types.filter(tp => SPECIAL_INFO[tp]).map(tp => `<span class="chip">${SPECIAL_INFO[tp].emoji} ${SPECIAL_INFO[tp].label} — ${notes[tp]}</span>`).join('');
+  return types.filter(tp => SPECIAL_INFO[tp]).map(tp => `<span class="legend-chip">${SPECIAL_INFO[tp].emoji} ${SPECIAL_INFO[tp].label} — ${notes[tp]}</span>`).join('');
 }
 function renderBoardPreview(def) {
   const box = $('board-preview');
@@ -496,9 +492,9 @@ function renderGame() {
   renderLog();
   const racing = state.phase === 'race';
   $('board').classList.toggle('board-dim', !racing);
-  $('host-race-controls').hidden = !(isHost() && racing);
+  $('end-race-btn').hidden = !(isHost() && racing);
   const fo = state.finishOrder || [];
-  $('end-race-btn').classList.toggle('btn--pulse', fo.length >= RS().finishersToEnd);
+  $('end-race-btn').classList.toggle('active', fo.length >= RS().finishersToEnd);
   $('board-hint').textContent = drawMode
     ? 'Draw mode: scribble on the board. Hit Draw again (or Esc) to go back to moving pawns.'
     : racing
@@ -674,7 +670,7 @@ function buildDrawBar() {
   });
   $('draw-toggle').onclick = toggleDraw;
   $('draw-size').onclick = () => { drawWidth = drawWidth === 4 ? 9 : 4; $('draw-size').textContent = drawWidth === 4 ? 'Thin' : 'Thick'; };
-  $('draw-hide').onclick = () => { hideDrawings = !hideDrawings; $('draw-hide').textContent = hideDrawings ? '👁 Show drawings' : '👁 Hide drawings'; renderDrawings(); };
+  $('draw-hide').onclick = () => { hideDrawings = !hideDrawings; $('draw-hide').textContent = hideDrawings ? 'Show drawings' : 'Hide drawings'; renderDrawings(); };
   $('draw-clear-mine').onclick = () => clearStrokes(myId);
   $('draw-clear-all').onclick = () => { if (confirm('Erase everyone\'s drawings?')) clearStrokes(null); };
 }
@@ -688,7 +684,7 @@ function toggleDraw() {
 function renderDrawBar() {
   const muted = isMuted(myId);
   $('draw-toggle').disabled = muted;
-  $('draw-toggle').textContent = muted ? '🔇 Muted' : (drawMode ? '✏️ Drawing…' : '✏️ Draw');
+  $('draw-toggle').innerHTML = muted ? '<i>🔇</i>Muted' : (drawMode ? '<i>✎</i>Drawing…' : '<i>✎</i>Draw');
   if (muted && drawMode) { drawMode = false; $('draw-toggle').classList.remove('active'); $('board-svg')?.classList.remove('drawing'); }
   $('draw-clear-all').hidden = !isHost();
 }
@@ -743,43 +739,63 @@ function renderTurnBox() {
   const applyBtn = $('apply-square');
   if (racing && sq && (sq.type === 'forward' || sq.type === 'back')) {
     applyBtn.hidden = false;
-    applyBtn.textContent = sq.type === 'forward' ? `⚡ Apply +${sq.n}` : `🌬️ Apply −${sq.n}`;
+    applyBtn.textContent = sq.type === 'forward' ? `⚡ +${sq.n}` : `🌬️ −${sq.n}`;
   } else applyBtn.hidden = true;
 }
 
-// One block per player in the right-hand column: who, where, points, their racer card(s).
-// Drag a block up or down to change the turn order.
+// The "Racer" pane on the right: the card of the selected pawn, else the player you clicked, else whoever's turn it is
+let focusPid = null;
+function renderRacerPane() {
+  const el = $('racer-pane'); if (!el) return;
+  const pc = selectedPiece ? state.pieces?.[selectedPiece] : null;
+  const cur = state.phase === 'race' ? state.raceOrder?.[state.turn?.index || 0] : null;
+  const pid = pc ? pc.pid : (focusPid && gp().some(p => p.id === focusPid) ? focusPid : cur);
+  const cid = pc ? pc.cardId : (state.runners?.[pid] || (state.stables?.[pid] || [])[0]);
+  if (!pid || !cid) { el.innerHTML = '<p class="note">Select a pawn or a player to read their card.</p>'; return; }
+  const place = (state.finishOrder || []).indexOf(pid);
+  const pieces = Object.values(state.pieces || {}).filter(p => p.pid === pid);
+  const pos = place >= 0 ? `finished ${ordinal(place + 1)}` : pieces.length ? pieces.map(p => p.space === 0 ? 'on Start' : 'on space ' + p.space).join(' / ') : 'not on the track';
+  el.innerHTML = lrowHTML({ tile: `<span class="dot" style="background:${pColor(pid)}"></span>`, body: `<span class="grow">${escapeHtml(pName(pid))}</span><span class="dim">${pos} · ${state.scores?.[pid] ?? 0} pts</span>` })
+    + `<div class="mt-8">${cardHTML(CARD(cid), { static: true })}</div>`;
+}
+
+// Players as Pulp layer rows (drag to reorder, click to select their pawn), plus a grid of every racer's card.
 function renderPlayers() {
-  const el = $('player-cards'); if (!el || lobby.status === 'waiting' || sortableActive) return;
+  const el = $('player-cards'); if (!el || lobby.status === 'waiting') return;
   const racing = state.phase === 'race';
   const ids = gp().map(p => p.id);
   const order = racing && state.raceOrder?.length ? [...state.raceOrder, ...ids.filter(id => !state.raceOrder.includes(id))] : ids;
   const cur = racing ? state.raceOrder?.[state.turn?.index || 0] : null;
   const fo = state.finishOrder || [];
-  el.innerHTML = order.map((pid, i) => {
+  if (!sortableActive) el.innerHTML = order.map((pid, i) => {
     const runner = state.runners?.[pid];
-    const cards = runner ? [runner] : (state.stables?.[pid] || []);
+    const card = runner ? CARD(runner) : null;
     const place = fo.indexOf(pid);
     const pieces = Object.values(state.pieces || {}).filter(p => p.pid === pid);
-    const pos = place >= 0 ? `🏁 ${ordinal(place + 1)}` : pieces.length ? pieces.map(p => p.space === 0 ? 'Start' : 'space ' + p.space).join(' / ') : '';
-    const stable = (state.stables?.[pid] || []).filter(c => c !== runner);
-    const retired = state.retired?.[pid] || [];
-    const chips = [...stable.map(c => `<span class="mini-chip" data-card="${c}">${CARD(c).emoji} ${escapeHtml(CARD(c).name)}</span>`),
-                   ...retired.map(c => `<span class="mini-chip mini-chip--retired" data-card="${c}">${CARD(c).emoji} ${escapeHtml(CARD(c).name)}</span>`)].join('');
-    const muteBtn = isHost() && pid !== myId ? `<button class="icon-btn${isMuted(pid) ? ' icon-btn--on' : ''}" data-mute="${pid}" title="${isMuted(pid) ? 'Allow drawing' : 'Mute drawing'}">${isMuted(pid) ? '🔇' : '🔊'}</button>` : (isMuted(pid) ? '<span title="muted from drawing">🔇</span>' : '');
-    return `<div class="pcard${pid === cur ? ' pcard--current' : ''}${place >= 0 ? ' pcard--done' : ''}" data-pid="${pid}" title="Drag to change the turn order">
-      <div class="pcard__head">
-        <span class="online-dot${isOnline(pid) ? ' online-dot--on' : ''}" title="${isOnline(pid) ? 'online' : 'away'}"></span>
-        <span class="pcard__ball" style="background:${pColor(pid)}"></span>
-        <span class="pcard__name">${i + 1}. ${escapeHtml(pName(pid))}${pid === myId ? ' <span class="hint">(you)</span>' : ''}</span>
-        <span class="pcard__meta">${pos}${pos ? ' · ' : ''}${state.scores?.[pid] ?? 0} pts</span>
-        ${muteBtn}
-      </div>
-      ${state.skips?.[pid] ? '<div class="tripped-pill">🍌 Tripped — misses next turn</div>' : ''}
-      ${cards.map(cid => cardHTML(CARD(cid), { mini: true })).join('') || '<div class="hint">No racer on the track</div>'}
-      ${chips ? `<div class="stable-chips">${chips}</div>` : ''}
-    </div>`;
+    const pos = place >= 0 ? `🏁 ${ordinal(place + 1)}` : pieces.length ? pieces.map(p => p.space === 0 ? 'start' : 'sp ' + p.space).join(' / ') : '';
+    const selected = selectedPiece && state.pieces?.[selectedPiece]?.pid === pid;
+    const muteBtn = isHost() && pid !== myId ? `<button class="ibtn${isMuted(pid) ? ' on' : ''}" data-mute="${pid}" title="${isMuted(pid) ? 'Allow drawing' : 'Mute drawing'}">${isMuted(pid) ? '🔇' : '🔊'}</button>` : (isMuted(pid) ? '<span class="dim" title="muted from drawing">🔇</span>' : '');
+    return lrowHTML({
+      pid, title: 'Drag to change the turn order · click to select their pawn',
+      cls: (pid === cur ? 'lrow--current ' : '') + (place >= 0 ? 'lrow--done ' : '') + (selected ? 'lrow--selected' : ''),
+      tile: card ? (card.art && card.pawn !== 'emoji' ? `<img src="${card.art}" alt="" style="width:26px;height:26px;object-fit:cover">` : card.emoji) : '·',
+      tileStyle: `box-shadow: inset 4px 0 0 ${pColor(pid)}`,
+      body: `<span class="grow">${i + 1}. ${escapeHtml(pName(pid))}${pid === myId ? ' <span class="hi">you</span>' : ''}${card ? ` <span class="dim">${escapeHtml(card.name)}</span>` : ''}</span>
+        ${state.skips?.[pid] ? '<span class="hi" title="Tripped — misses next turn">🍌</span>' : ''}
+        <span class="dim">${pos}${pos ? ' · ' : ''}${state.scores?.[pid] ?? 0} pts</span>${muteBtn}`,
+    });
   }).join('');
+
+  // Every racer on the table, full text, so nobody has to ask
+  const tiles = $('racer-tiles');
+  tiles.innerHTML = order.map(pid => {
+    const runner = state.runners?.[pid];
+    const cards = runner ? [runner] : (state.stables?.[pid] || []);
+    const retired = state.retired?.[pid] || [];
+    return cards.map(cid => cardHTML(CARD(cid), { owner: pName(pid), ownerColor: pColor(pid) })).join('')
+      + (retired.length ? `<div class="stable-chips">${retired.map(c => `<span class="mini-chip mini-chip--retired" data-card="${c}">${CARD(c).emoji} ${escapeHtml(CARD(c).name)}</span>`).join('')}</div>` : '');
+  }).join('') || '<p class="note">No racers yet.</p>';
+  renderRacerPane();
 }
 
 // ── Drag-to-reorder (works with mouse and touch) ─────────────
@@ -856,9 +872,12 @@ async function reorderSeats(ids) {
   await Promise.all(order.map((id, k) => store.updatePlayer(id, { seat_order: k })));
 }
 
+// The log reads like Pulp's script box: numbered lines, newest at the top
 function renderLog() {
-  const entries = [...(state.log || [])].reverse().slice(0, 80);
-  $('log').innerHTML = entries.map(e => `<div class="log__entry log__entry--${e.type || 'info'}">${escapeHtml(e.text)}</div>`).join('') || '<div class="hint">Nothing yet.</div>';
+  const all = state.log || [];
+  const entries = [...all].reverse().slice(0, 80);
+  $('log').innerHTML = entries.map((e, i) => `<div class="code__line code__line--${e.type || 'info'}"><span class="code__num">${all.length - i}</span><span class="code__text">${escapeHtml(e.text)}</span></div>`).join('')
+    || '<div class="code__line"><span class="code__num">1</span><span class="code__text" style="color:var(--g)">nothing yet</span></div>';
 }
 
 async function sendChat(e) {
@@ -907,8 +926,8 @@ function renderDraft() {
   $('draft-pool').innerHTML = d.pool.map(cid => cardHTML(CARD(cid), { pickme })).join('');
   $('draft-stables').innerHTML = gp().map(p => {
     const cards = state.stables?.[p.id] || [];
-    return `<div class="status-row"><span class="status-row__ball" style="background:${p.color}"></span><span class="status-row__name">${escapeHtml(p.name)}</span>
-      <span class="stable-chips">${cards.map(c => `<span class="mini-chip" data-card="${c}">${CARD(c).emoji} ${escapeHtml(CARD(c).name)}</span>`).join('') || '<span class="hint">no racers yet</span>'}</span></div>`;
+    return lrowHTML({ tile: `<span class="dot" style="background:${p.color}"></span>`,
+      body: `<span class="grow">${escapeHtml(p.name)}</span><span class="stable-chips">${cards.map(c => `<span class="mini-chip" data-card="${c}">${CARD(c).emoji} ${escapeHtml(CARD(c).name)}</span>`).join('') || '<span class="dim">no racers yet</span>'}</span>` });
   }).join('');
 }
 
@@ -919,8 +938,8 @@ function renderLineup() {
     const v = lu[p.id];
     const status = v === 'none' ? 'sitting out (no racers)' : v ? `✓ ${CARD(v).emoji} ${escapeHtml(CARD(v).name)}` : 'choosing…';
     const first = (state.stables?.[p.id] || [])[0];
-    const hostBtn = (v === null && isHost() && p.id !== myId && first) ? `<button class="btn btn--sm" onclick="chooseRunner('${p.id}', '${first}')">Pick for them</button>` : '';
-    return `<div class="status-row"><span class="status-row__ball" style="background:${p.color}"></span><span class="status-row__name">${escapeHtml(p.name)}${p.id === myId ? ' (you)' : ''}</span><span>${status}</span>${hostBtn}</div>`;
+    const hostBtn = (v === null && isHost() && p.id !== myId && first) ? `<button class="tbtn" onclick="chooseRunner('${p.id}', '${first}')">Pick for them</button>` : '';
+    return lrowHTML({ tile: `<span class="dot" style="background:${p.color}"></span>`, body: `<span class="grow">${escapeHtml(p.name)}${p.id === myId ? ' <span class="hi">you</span>' : ''}</span><span class="dim">${status}</span>${hostBtn}` });
   }).join('');
   const mine = state.stables?.[myId] || [];
   if (lu[myId] === null) {
@@ -982,11 +1001,11 @@ function initSketch() {
     tools.appendChild(sw);
   });
   const sizeBtn = document.createElement('button');
-  sizeBtn.className = 'btn btn--sm'; sizeBtn.type = 'button'; sizeBtn.textContent = 'Pen: M';
+  sizeBtn.className = 'tbtn'; sizeBtn.type = 'button'; sizeBtn.textContent = 'Pen: M';
   sizeBtn.onclick = () => { sketch.size = sketch.size === 5 ? 12 : sketch.size === 12 ? 2 : 5; sizeBtn.textContent = 'Pen: ' + (sketch.size === 2 ? 'S' : sketch.size === 5 ? 'M' : 'L'); };
   tools.appendChild(sizeBtn);
   const clearBtn = document.createElement('button');
-  clearBtn.className = 'btn btn--sm btn--ghost'; clearBtn.type = 'button'; clearBtn.textContent = 'Clear';
+  clearBtn.className = 'tbtn'; clearBtn.type = 'button'; clearBtn.textContent = 'Clear';
   clearBtn.onclick = clearSketch;
   tools.appendChild(clearBtn);
 
@@ -1024,7 +1043,7 @@ function resetCardForm() {
   setPawnChoice('art');
   clearSketch();
   $('create-form-title').textContent = 'New racer';
-  $('c-save').textContent = 'Save racer';
+  $('c-save').innerHTML = '<i>＋</i>Save racer';
   $('c-cancel').hidden = true;
   renderCreate();
 }
@@ -1037,7 +1056,7 @@ function editMadeCard(id) {
   clearSketch();
   if (c.art) { const img = new Image(); img.onload = () => { sketch.ctx.drawImage(img, 0, 0); sketch.dirty = true; }; img.src = c.art; }
   $('create-form-title').textContent = `Editing ${c.name}`;
-  $('c-save').textContent = 'Save changes';
+  $('c-save').innerHTML = '<i>✓</i>Save changes';
   $('c-cancel').hidden = false;
   $('c-name').focus();
 }
@@ -1081,17 +1100,17 @@ function renderCreate() {
   $('create-progress').textContent = `${cards.length} / ${total} racers made`;
   $('create-status').innerHTML = gp().map(p => {
     const n = cards.filter(c => c.player_id === p.id).length;
-    return `<div class="status-row"><span class="status-row__ball" style="background:${p.color}"></span><span class="status-row__name">${escapeHtml(p.name)}${p.id === myId ? ' (you)' : ''}</span><span>${n >= quota ? '✓ ' : ''}${n} / ${quota}</span></div>`;
+    return lrowHTML({ tile: `<span class="dot" style="background:${p.color}"></span>`, body: `<span class="grow">${escapeHtml(p.name)}${p.id === myId ? ' <span class="hi">you</span>' : ''}</span><span class="${n >= quota ? 'hi' : 'dim'}">${n >= quota ? '✓ ' : ''}${n} / ${quota}</span>` });
   }).join('');
   const mine = cards.filter(c => c.player_id === myId).length;
   $('c-save').disabled = !editingCardId && mine >= quota;
   const done = cards.length >= total;
   $('create-start-btn').hidden = !isHost();
-  $('create-start-btn').classList.toggle('btn--pulse', done);
+  $('create-start-btn').classList.toggle('active', done);
   $('create-wait').textContent = isHost() ? (done ? 'Everyone is done!' : 'You can start early — anyone still missing cards drafts from what exists.') : (done ? 'Waiting for the host to start the draft…' : (mine >= quota ? 'Waiting for the others…' : `Make ${quota - mine} more racer(s).`));
   $('create-cards').innerHTML = cards.map(c => {
     const own = c.player_id === myId;
-    const tools = own ? `<div class="card-wrap__own"><button class="btn btn--sm" data-edit="${c.id}">✎ Edit</button><button class="btn btn--sm btn--ghost" data-del="${c.id}">Delete</button></div>` : '';
+    const tools = own ? `<div class="card-wrap__own"><button class="tbtn" data-edit="${c.id}">✎ Edit</button><button class="tbtn" data-del="${c.id}">Delete</button></div>` : '';
     return `<div class="card-wrap">${cardHTML(CARD(c.id))}${tools}</div>`;
   }).join('') || '<p class="hint">No racers yet — be the first!</p>';
 }
@@ -1116,21 +1135,31 @@ async function startCreatedDraft() {
 }
 
 // ── Cards ────────────────────────────────────────────────────
+// A racer card in the Pulp idiom: [emoji tile][name bar] over a numbered "behavior" text block
 function cardHTML(c, o = {}) {
-  const cls = ['card-face'];
-  if (o.mini) cls.push('card-face--mini');
-  if (o.static) cls.push('card-face--static');
-  if (o.pickme) cls.push('card-face--pickme');
-  const setLabel = c.set === 'experimental' ? '⚗️ experimental' : c.set === 'made' ? `made by ${escapeHtml(pName(c.by))}` : c.set;
-  return `<div class="${cls.join(' ')}" style="--card-color:${c.color}" data-card="${c.id}">
-    <div class="card-face__head">
-      <div class="card-face__emoji">${c.emoji}</div>
-      <div><div class="card-face__name">${escapeHtml(c.name)}</div><div class="card-face__tag">${escapeHtml(c.tag || '')}</div></div>
+  const cls = ['card'];
+  if (o.static) cls.push('card--static');
+  if (o.pickme) cls.push('card--pickme');
+  const setLabel = c.set === 'experimental' ? 'experimental' : c.set === 'made' ? `made by ${escapeHtml(pName(c.by))}` : c.set;
+  const lines = wrapLines(c.text, o.static ? 40 : 34);
+  return `<div class="${cls.join(' ')}" style="--card-color:${o.ownerColor || c.color}" data-card="${c.id}">
+    <div class="card__head">
+      <div class="card__tile">${c.emoji}</div>
+      <div class="card__bar"><span class="card__name">${escapeHtml(c.name)}</span><span class="card__tag">${escapeHtml(o.owner ? o.owner : (c.tag || ''))}</span></div>
     </div>
-    ${c.art ? `<div class="card-face__art"><img src="${c.art}" alt=""></div>` : ''}
-    <div class="card-face__body">${escapeHtml(c.text)}</div>
-    <div class="card-face__foot"><span>${setLabel}</span><span>#${c.number}${c.pawns > 1 ? ' · 2 pawns' : ''}</span></div>
+    ${c.art ? `<div class="card__art"><img src="${c.art}" alt=""></div>` : ''}
+    <div class="card__body">${lines.map((l, i) => `<div class="code__line"><span class="code__num">${i + 1}</span><span class="code__text">${escapeHtml(l)}</span></div>`).join('')}</div>
+    <div class="card__foot"><span>${setLabel}</span><span>#${c.number}${c.pawns > 1 ? ' · 2 pawns' : ''}</span></div>
   </div>`;
+}
+// Greedy word-wrap so card text gets line numbers like a script
+function wrapLines(text, width) {
+  const out = []; let line = '';
+  for (const w of String(text).split(/\s+/)) {
+    if ((line + ' ' + w).trim().length > width && line) { out.push(line); line = w; } else line = (line + ' ' + w).trim();
+  }
+  if (line) out.push(line);
+  return out.length ? out : [''];
 }
 
 function openCardModal(cardId) {
@@ -1139,15 +1168,20 @@ function openCardModal(cardId) {
   $('modal-card-body').innerHTML = cardHTML(c, { static: true });
   const act = $('modal-card-actions');
   act.innerHTML = '';
-  const add = (label, cls, fn) => { const b = document.createElement('button'); b.className = 'btn ' + cls; b.textContent = label; b.onclick = fn; act.appendChild(b); };
+  const add = (label, primary, fn) => {
+    const b = document.createElement('button');
+    b.className = primary ? 'pbtn pbtn--go' : 'tbtn';
+    if (primary) { b.style.width = 'auto'; b.style.paddingRight = '12px'; b.innerHTML = '<i>➜</i>' + escapeHtml(label); } else b.textContent = label;
+    b.onclick = fn; act.appendChild(b);
+  };
   if (state.phase === 'draft' && canPickNow() && state.draft.pool.includes(cardId)) {
     const cur = state.draft.order[state.draft.pickIndex];
-    add(cur === myId ? 'Draft this racer' : `Draft for ${pName(cur)}`, 'btn--primary', () => pickCard(cardId));
+    add(cur === myId ? 'Draft this racer' : `Draft for ${pName(cur)}`, true, () => pickCard(cardId));
   }
   if (state.phase === 'lineup' && state.lineup?.[myId] === null && (state.stables?.[myId] || []).includes(cardId)) {
-    add('Race with this one', 'btn--primary', () => chooseRunner(myId, cardId));
+    add('Race with this one', true, () => chooseRunner(myId, cardId));
   }
-  add('Close', 'btn--ghost', closeCardModal);
+  add('Close', false, closeCardModal);
   $('modal-card').hidden = false;
 }
 function closeCardModal() { modalCardId = null; $('modal-card').hidden = true; }
@@ -1158,7 +1192,7 @@ function buildGalleryTabs() {
   if (madeCards.length) tabs.push(['made', '🎨 Player-made']);
   tabs.push(['undrafted', 'Undrafted this race']);
   if (!tabs.some(t => t[0] === galleryTab)) galleryTab = 'all';
-  $('gallery-tabs').innerHTML = tabs.map(([k, l]) => `<button class="btn btn--sm${k === galleryTab ? ' active' : ''}" data-tab="${k}">${l}</button>`).join('');
+  $('gallery-tabs').innerHTML = tabs.map(([k, l]) => `<button class="tbtn${k === galleryTab ? ' active' : ''}" data-tab="${k}">${l}</button>`).join('');
   $('gallery-tabs').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { galleryTab = b.dataset.tab; buildGalleryTabs(); renderGallery(); });
 }
 function renderGallery() {
@@ -1168,7 +1202,7 @@ function renderGallery() {
             : Object.values(CARD_INDEX).filter(c => galleryTab === 'all' || c.set === galleryTab);
   if (galleryTab === 'all') cards = [...cards, ...Object.values(RUNTIME_CARDS)];
   if (q) cards = cards.filter(c => (c.name + ' ' + c.text + ' ' + (c.tag || '')).toLowerCase().includes(q));
-  $('gallery-grid').innerHTML = cards.map(c => cardHTML(c, { mini: true })).join('') || '<p class="hint">Nothing here.</p>';
+  $('gallery-grid').innerHTML = cards.map(c => cardHTML(c)).join('') || '<p class="note">Nothing here.</p>';
 }
 
 // ============================================================
