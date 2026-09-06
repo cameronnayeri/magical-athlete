@@ -235,8 +235,10 @@ function wireUI() {
   ['theme-select', 'theme-select-game'].forEach(id => { $(id).onchange = () => applyTheme($(id).value); });
   ['font-select', 'font-select-game'].forEach(id => { $(id).onchange = () => applyFont($(id).value); });
   $('settings-toggle').onclick = () => { $('settings-pop').hidden = !$('settings-pop').hidden; };
-  $('players-head').onclick = () => $('players-panel').classList.toggle('fpanel--collapsed');
-  $('log-head').onclick = () => $('log-panel').classList.toggle('fpanel--collapsed');
+  $('players-head').onclick = () => { if (!hudSuppressClick) $('players-panel').classList.toggle('fpanel--collapsed'); };
+  $('log-head').onclick = () => { if (!hudSuppressClick) $('log-panel').classList.toggle('fpanel--collapsed'); };
+  $('reset-layout').onclick = resetHudLayout;
+  initHudDrag();
   $('zoom-in').onclick = () => { boardZoom = Math.min(1.8, +(boardZoom + 0.15).toFixed(2)); applyZoom(); };
   $('zoom-out').onclick = () => { boardZoom = Math.max(0.5, +(boardZoom - 0.15).toFixed(2)); applyZoom(); };
   buildEmojiPicker();
@@ -810,6 +812,57 @@ function renderPlayers() {
     });
   }).join('');
   renderRacerPane();
+}
+
+// ── Movable panels: drag any module by its grip or header, positions remembered per browser ──
+let hudSuppressClick = false;
+function hudLayout() { try { return JSON.parse(localStorage.getItem('ma_hud') || '{}'); } catch { return {}; } }
+function placeHud(el, x, y) {
+  const m = el.parentElement.getBoundingClientRect();
+  x = Math.max(0, Math.min(m.width - Math.min(el.offsetWidth, m.width), x));
+  y = Math.max(0, Math.min(m.height - 48, y));
+  el.style.left = Math.round(x) + 'px'; el.style.top = Math.round(y) + 'px';
+  el.style.right = 'auto'; el.style.bottom = 'auto'; el.style.transform = 'none';
+}
+function initHudDrag() {
+  const saved = hudLayout();
+  document.querySelectorAll('.map .hud[id]').forEach(el => {
+    if (saved[el.id]) placeHud(el, saved[el.id].x, saved[el.id].y);
+    el.querySelectorAll('.grip, .fpanel__head').forEach(h => makeHudHandle(el, h));
+  });
+  window.addEventListener('resize', () => { const s = hudLayout(); document.querySelectorAll('.map .hud[id]').forEach(el => { if (s[el.id]) placeHud(el, s[el.id].x, s[el.id].y); }); });
+}
+function makeHudHandle(el, handle) {
+  let d = null;
+  handle.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || e.target.closest('button, input, select, textarea, a, [data-pid], [data-card]')) return;
+    const r = el.getBoundingClientRect(), m = el.parentElement.getBoundingClientRect();
+    d = { sx: e.clientX, sy: e.clientY, ox: r.left - m.left, oy: r.top - m.top, moved: false };
+    try { handle.setPointerCapture(e.pointerId); } catch {}
+  });
+  handle.addEventListener('pointermove', e => {
+    if (!d) return;
+    const dx = e.clientX - d.sx, dy = e.clientY - d.sy;
+    if (!d.moved) { if (Math.hypot(dx, dy) < 5) return; d.moved = true; el.classList.add('hud--dragging'); }
+    e.preventDefault();
+    placeHud(el, d.ox + dx, d.oy + dy);
+  });
+  const end = () => {
+    if (!d) return;
+    const was = d; d = null;
+    el.classList.remove('hud--dragging');
+    if (!was.moved) return;
+    hudSuppressClick = true; setTimeout(() => { hudSuppressClick = false; }, 250);
+    const s = hudLayout(); s[el.id] = { x: parseInt(el.style.left, 10), y: parseInt(el.style.top, 10) };
+    try { localStorage.setItem('ma_hud', JSON.stringify(s)); } catch {}
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+}
+function resetHudLayout() {
+  try { localStorage.removeItem('ma_hud'); } catch {}
+  document.querySelectorAll('.map .hud[id]').forEach(el => { el.style.left = el.style.top = el.style.right = el.style.bottom = el.style.transform = ''; });
+  showNotif('Panels back where they started', 'success');
 }
 
 // ── Drag-to-reorder (works with mouse and touch) ─────────────

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Magical Athlete — Game</title>
-  <link rel="stylesheet" href="css/style.css?v=20260906m">
+  <link rel="stylesheet" href="css/style.css?v=20260906n">
   <script>try {
     var q = new URLSearchParams(location.search);
     if (q.get('theme')) localStorage.setItem('ma_theme', q.get('theme'));
@@ -155,8 +155,9 @@
       </div>
 
       <!-- top-left: actions -->
-      <div class="hud hud-tl">
+      <div class="hud hud-tl" id="hud-actions">
         <div class="toolbar">
+          <span class="grip" title="Drag to move">⋮⋮</span>
           <button class="ibtn" id="roll-btn" title="Roll (R)">🎲</button>
           <button class="ibtn" id="roll2-btn" title="Roll two dice">🎲🎲</button>
           <button class="ibtn ibtn--go" id="next-turn-btn" title="End turn (N)">➜</button>
@@ -186,8 +187,9 @@
       </div>
 
       <!-- top-center: whose turn -->
-      <div class="hud hud-tc">
+      <div class="hud hud-tc" id="hud-turn">
         <div class="turnstrip">
+          <span class="grip" title="Drag to move">⋮⋮</span>
           <span class="eyebrow" id="turn-sub">—</span>
           <span class="who"><span id="turn-who">—</span></span>
           <div class="dice-row" id="dice-row"></div>
@@ -196,9 +198,10 @@
         </div>
       </div>
 
-      <!-- top-right: zoom, settings, players -->
-      <div class="hud hud-tr">
+      <!-- top-right: zoom & settings -->
+      <div class="hud hud-tr" id="hud-zoom">
         <div class="toolbar">
+          <span class="grip" title="Drag to move">⋮⋮</span>
           <button class="ibtn" id="zoom-out" title="Zoom out">−</button>
           <button class="ibtn" id="zoom-in" title="Zoom in">+</button>
           <button class="ibtn" id="settings-toggle" title="Display settings">⚙</button>
@@ -206,7 +209,12 @@
         <div class="fpanel settings-pop" id="settings-pop" hidden>
           <label>Theme<select id="theme-select-game"><option value="light">Light</option><option value="dark">Dark</option></select></label>
           <label>Type<select id="font-select-game"><option value="sans">Sans serif</option><option value="pixel">Pixel font</option></select></label>
+          <button class="btn btn--sm" id="reset-layout">Reset panel layout</button>
         </div>
+      </div>
+
+      <!-- right: players -->
+      <div class="hud hud-players" id="hud-players">
         <div class="fpanel players-panel" id="players-panel">
           <div class="fpanel__head" id="players-head"><h3>Players</h3><span class="note">drag to reorder · click to select</span></div>
           <div class="fpanel__body"><div class="rows" id="player-cards"></div></div>
@@ -214,12 +222,15 @@
       </div>
 
       <!-- bottom-left: the racer card -->
-      <div class="hud hud-bl">
-        <div class="fpanel racer-pane" id="racer-pane"><p class="note" style="padding:12px 14px">Select a pawn or a player to read their card.</p></div>
+      <div class="hud hud-bl" id="hud-racer">
+        <div class="fpanel racer-pane-wrap">
+          <div class="fpanel__head fpanel__head--slim" id="racer-head"><span class="eyebrow">Racer</span><span class="grip" title="Drag to move">⋮⋮</span></div>
+          <div class="racer-pane" id="racer-pane"><p class="note" style="padding:12px 14px">Select a pawn or a player to read their card.</p></div>
+        </div>
       </div>
 
       <!-- bottom-right: log & chat -->
-      <div class="hud hud-br">
+      <div class="hud hud-br" id="hud-log">
         <div class="fpanel log-panel" id="log-panel">
           <div class="fpanel__head" id="log-head"><h3>Log</h3><span class="note" id="log-count"></span></div>
           <div class="fpanel__body">
@@ -336,10 +347,10 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="js/config.js?v=20260906m"></script>
-  <script src="js/client.js?v=20260906m"></script>
-  <script src="js/cards.js?v=20260906m"></script>
-  <script src="js/boards.js?v=20260906m"></script>
-  <script src="js/game.js?v=20260906m"></script>
+  <script src="js/config.js?v=20260906n"></script>
+  <script src="js/client.js?v=20260906n"></script>
+  <script src="js/cards.js?v=20260906n"></script>
+  <script src="js/boards.js?v=20260906n"></script>
+  <script src="js/game.js?v=20260906n"></script>
 </body>
 </html>

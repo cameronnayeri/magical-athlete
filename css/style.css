@@ -207,11 +207,18 @@ input[type="range"] { accent-color: var(--ink); cursor: pointer; }
 .board-dim { opacity: 0.5; pointer-events: none; }
 
 .hud { position: absolute; z-index: 10; }
+.hud--dragging { z-index: 30; }
 .hud-tl { top: 16px; left: 16px; display: flex; flex-direction: column; gap: 8px; }
 .hud-tc { top: 16px; left: 50%; transform: translateX(-50%); }
-.hud-tr { top: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; max-height: calc(100% - 32px); }
+.hud-tr { top: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.hud-players { top: 72px; right: 16px; }
 .hud-bl { bottom: 16px; left: 16px; width: 420px; max-width: calc(100% - 32px); }
 .hud-br { bottom: 16px; right: 16px; width: 340px; max-width: calc(100% - 32px); }
+.grip { cursor: grab; color: var(--ink3); padding: 0 4px 0 8px; user-select: none; letter-spacing: -3px; font-size: 1rem; touch-action: none; }
+.grip:active { cursor: grabbing; }
+.fpanel__head { touch-action: none; }
+.fpanel__head--slim { padding: 6px 8px 0 14px; cursor: grab; }
+.racer-pane-wrap .card { box-shadow: none; border: 0; }
 .toolbar { display: flex; gap: 6px; align-items: center; padding: 6px; border-radius: 30px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); }
 .toolbar--col { flex-direction: column; border-radius: 30px; }
 .toolbar .sep { width: 1px; height: 24px; background: var(--line); margin: 0 2px; }

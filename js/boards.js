@@ -160,7 +160,6 @@ function boardSVG(def, opts = {}) {
   // Draw back-to-front so nearer tiles overlap the sides of the ones behind them
   const order = points.map((p, i) => i).sort((a, b) => points[a].y - points[b].y || points[a].x - points[b].x);
 
-  const wave = (x, y) => `<path class="wave" d="M${x} ${y} q3 -3 6 0 t6 0"/>`;
   order.forEach(i => {
     const p = points[i];
     const isStart = i === 0, isGoal = i === goal;
@@ -176,8 +175,6 @@ function boardSVG(def, opts = {}) {
       s += `<text class="tile-label" x="${p.x}" y="${p.y + 5}" text-anchor="middle">${isStart ? 'GO' : 'END'}</text>`;
       if (isGoal) s += `<text class="tile-glyph" x="${x + inner - 12}" y="${y + 12}" text-anchor="middle" dominant-baseline="central" font-size="12">🏁</text>`;
     } else {
-      if (!sp) { s += wave(x + 8 + (i % 3) * 5, y + 30 - (i % 2) * 6); if (i % 2) s += wave(x + 20, y + 18); }
-      else s += `<path class="sandline" d="M${x + 4} ${y + inner - 14} q10 -6 20 0 t16 -2"/>`;
       s += `<rect class="tile-num-bg" x="${x + 4}" y="${y + 4}" width="20" height="14" rx="4"/><text class="tile-num" x="${x + 14}" y="${y + 14.5}" text-anchor="middle">${i}</text>`;
       if (sp) {
         const info = SPECIAL_INFO[sp.type] || { emoji: '❔' };
